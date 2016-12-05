@@ -18,8 +18,18 @@ public class Solver {
     }
 
     public void solve() {
+        // TODO: These 3 procedures needs to be developed, and integrated into some metaheuristic framework
         generateInitialSolution();
         localSearch();
         perturbate();
+    }
+
+    private void perturbate() {
+    }
+
+    private void localSearch() {
+    }
+
+    private void generateInitialSolution() {
     }
 }
