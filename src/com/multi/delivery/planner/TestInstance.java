@@ -1,5 +1,7 @@
 package com.multi.delivery.planner;
 
+import java.util.Arrays;
+
 /**
  * Created by pero on 05/12/2016.
  */
@@ -12,6 +14,8 @@ public class TestInstance {
     int[] nodeIDs;
     // Edge costs
     float[][] edgeCosts;
+    // Node costs
+    float[] nodeCosts;
     // Deliverers' set of nodes
     int[][] deliverers;
     // Solution paths
@@ -37,5 +41,9 @@ public class TestInstance {
         this.optimalMTSPScore = optimalMTSPScore;
         this.poolSize = poolSize;
         this.computationTime = computationTime;
+        // We assume that node costs are the same for all nodes (15 minutes)
+        this.nodeCosts = new float[nodeCount];
+        Arrays.fill(this.nodeCosts, 15.0f);
+
     }
 }
