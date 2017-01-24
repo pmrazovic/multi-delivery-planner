@@ -3,31 +3,56 @@ package com.multi.delivery.planner;
 @SuppressWarnings("unchecked")
 public class RBTree<K extends Comparable<K>, V> {
 
-    // The public inner class for nodes.
-    public class Node {
-        protected Node left, right; // this Node's children
-        protected Node parent;      // this Node's parent
-        private K key;              // this Node's key
-        private V value;            // the associated value
-        protected boolean isBlack;
+    // The public inner class for nodes
+    // Each node represent arrival or departure
+    public class Node implements Comparable<Node> {
+        protected Node left, right;     // this Node's children
+        protected Node parent;          // this Node's parent
+        protected boolean isBlack;      // this Node's color
+        private float key;              // this Node's key (time of arrival/departure)
+        private boolean isArrival;      // does this Node represents arrival or departure?
+        private int leftVal;            // left value (+1 if Node is arrival, -1 if it is departure)
+        private int rightVal;           // right value (-1 if Node is arrival, +1 if it is departure)
+        private int sumLeft;            // sum of the left values of all of the nodes in the subtree rooted at this Node
+        private int sumRight;           // sum of the right values of all of the nodes in the subtree rooted at this Node
+        private int maxLeft;            // maximum possible cumulative sum of left values in the subtree rooted at this Node
+        private int maxRight;           // maximum possible cumulative sum of right values in the subtree rooted at this Node
+        private float maxLeftEndpoint;  // left endpoint of maximum overlapping interval in the subtree rooted at this Node
+        private float maxRightEndpoint; // right endpoint of maximum overlapping interval in the subtree rooted at this Node
 
-        public Node(K key, V value) {
+        // Class constructor
+        public Node(float key, boolean isArrival) {
             this.key = key;
-            this.value = value;
+            this.isArrival = isArrival;
+            if (isArrival) {
+                this.leftVal = 1;
+                this.rightVal = -1;
+            } else {
+                this.leftVal = -1;
+                this.rightVal = 1;
+            }
+            this.sumLeft = this.leftVal;
+            this.maxLeft = this.leftVal;
+            this.maxLeftEndpoint = this.key;
+            this.sumRight = this.rightVal;
+            this.maxRight = this.rightVal;
+            this.maxRightEndpoint = this.key;
             parent = left = right = sentinel;
             isBlack = false;
         }
 
-        public K getKey() {
-            return key;
+        // Constructor for sentinel node
+        public Node() {
+            this.sumLeft = 0;
+            this.maxLeft = 0;
+            this.maxLeftEndpoint = 0;
+            this.sumRight = 0;
+            this.maxRight = 0;
+            this.maxRightEndpoint = 0;
         }
 
-        public V getValue() {
-            return value;
-        }
-
-        public void setValue(V newValue) {
-            value = newValue;
+        public float getKey() {
+            return this.key;
         }
 
         protected boolean isBlack() {
@@ -44,6 +69,146 @@ public class RBTree<K extends Comparable<K>, V> {
 
         protected void redden() {
             isBlack = false;
+        }
+
+        // Method compares this Node with another node
+        public int compareTo(Node otherNode) {
+            if (this.key < otherNode.key) {
+                return -1;
+            } else if (this.key == otherNode.key) {
+                if (this.isArrival && !otherNode.isArrival) {
+                    return 1;
+                } else if (!this.isArrival && otherNode.isArrival) {
+                    return -1;
+                } else {
+                    return 0;
+                }
+            } else {
+                return 1;
+            }
+        }
+
+        // Helper method returns position of the max element in array
+        private int maxOption(int[] options) {
+            int maxIdx = 0;
+            int max = options[0];
+
+            for (int i = 0; i < options.length; i++) {
+                if (options[i] > max) {
+                    maxIdx = i;
+                    max = options[i];
+                }
+            }
+
+            return maxIdx;
+        }
+
+        // Method updates this Node's augmented attributes
+        // when balancing the tree
+        public void updateAugmentedAttrs() {
+            if (this.left == sentinel && this.right == sentinel) {
+                // Both of the children are sentinels
+                this.sumLeft = this.leftVal;
+                this.maxLeft = this.leftVal;
+                this.maxLeftEndpoint = this.key;
+                this.sumRight = this.rightVal;
+                this.maxRight = this.rightVal;
+                this.maxRightEndpoint = this.key;
+            } else {
+                int[] maxLeftOptions;
+                float[] maxLeftPosOptions;
+                int[] maxRightOptions;
+                float[] maxRightPosOptions;
+
+                if (this.left != sentinel && this.right == sentinel) {
+                    // Only right child is sentinel
+                    this.sumLeft = this.left.sumLeft + this.leftVal;
+                    this.sumRight = this.left.sumRight + this.rightVal;
+
+                    maxLeftOptions = new int[]{
+                            this.left.maxLeft,
+                            this.left.sumLeft + this.leftVal
+                    };
+
+                    maxLeftPosOptions = new float[]{
+                            this.left.maxLeftEndpoint,
+                            this.key
+                    };
+
+                    maxRightOptions = new int[]{
+                            this.rightVal + this.left.maxRight,
+                            this.rightVal
+                    };
+
+                    maxRightPosOptions = new float[]{
+                            this.left.maxRightEndpoint,
+                            this.key
+                    };
+
+                } else if (this.left == sentinel && this.right != sentinel) {
+                    // Only left child is sentinel
+                    this.sumLeft = this.leftVal + this.right.sumLeft;
+                    this.sumRight = this.rightVal + this.right.sumRight;
+
+                    maxLeftOptions = new int[]{
+                            this.leftVal,
+                            this.leftVal + this.right.maxLeft
+                    };
+
+                    maxLeftPosOptions = new float[]{
+                            this.key,
+                            this.right.maxLeftEndpoint
+                    };
+
+                    maxRightOptions = new int[]{
+                            this.right.sumRight + this.rightVal,
+                            this.right.maxRight
+                    };
+
+                    maxRightPosOptions = new float[]{
+                            this.key,
+                            this.right.maxRightEndpoint
+                    };
+
+                } else {
+                    // No sentinel children
+                    this.sumLeft = this.left.sumLeft + this.leftVal + this.right.sumLeft;
+                    this.sumRight = this.left.sumRight + this.rightVal + this.right.sumRight;
+
+                    maxLeftOptions = new int[]{
+                            this.left.maxLeft,
+                            this.left.sumLeft + this.leftVal,
+                            this.left.sumLeft + this.leftVal + this.right.maxLeft
+                    };
+
+                    maxLeftPosOptions = new float[]{
+                            this.left.maxLeftEndpoint,
+                            this.key,
+                            this.right.maxLeftEndpoint
+                    };
+
+                    maxRightOptions = new int[]{
+                            this.right.sumRight + this.rightVal + this.left.maxRight,
+                            this.right.sumRight + this.rightVal,
+                            this.right.maxRight
+                    };
+
+                    maxRightPosOptions = new float[]{
+                            this.left.maxRightEndpoint,
+                            this.key,
+                            this.right.maxRightEndpoint
+                    };
+
+                }
+
+                int optionLeft = maxOption(maxLeftOptions);
+                int optionRight = maxOption(maxRightOptions);
+
+                this.maxLeft = maxLeftOptions[optionLeft];
+                this.maxLeftEndpoint = maxLeftPosOptions[optionLeft];
+                this.maxRight = maxRightOptions[optionRight];
+                this.maxRightEndpoint = maxRightPosOptions[optionRight];
+            }
         }
 
         // Return a reference to the node in the subtree rooted at this node with the minimum
@@ -86,6 +251,9 @@ public class RBTree<K extends Comparable<K>, V> {
                 x.parent.right = y;
             y.left = x;
             x.parent = y;
+
+            x.updateAugmentedAttrs();
+            y.updateAugmentedAttrs();
         }
 
         // Do a right rotation around this node
@@ -104,6 +272,9 @@ public class RBTree<K extends Comparable<K>, V> {
                 x.parent.left = x;
             x.right = y;
             y.parent = x;
+
+            x.updateAugmentedAttrs();
+            y.updateAugmentedAttrs();
         }
 
         // Fix the possible violation of the red-black properties
@@ -177,9 +348,13 @@ public class RBTree<K extends Comparable<K>, V> {
             else
                 this.parent.right = v;
 
-            if (v != sentinel)          // if v wasn't the sentinel ...
-                v.parent = this.parent;   // ... update its parent
             v.parent = this.parent;   // even if v is the sentinel
+
+            Node x = v.parent;
+            while (x != sentinel) {
+                x.updateAugmentedAttrs();
+                x = x.parent;
+            }
         }
 
         // Remove this node from a red-black tree
@@ -330,11 +505,9 @@ public class RBTree<K extends Comparable<K>, V> {
         // The String representation of this Node
         public String toString() {
 
-            return "key = " + key + ", value = " + value + ", parent = "
-                    + (parent == sentinel ? "sentinel" : parent.key) + ", left = "
-                    + (left == sentinel ? "sentinel" : left.key) + ", right = "
-                    + (right == sentinel ? "sentinel" : right.key) + ", color = " +
-                    (isBlack ? "black" : "red");
+            return "key = " + key + ", max_L = "
+                    + maxLeft + ", max_R = " + maxRight + ", max_endpoint_L = "
+                    + maxLeftEndpoint + ", max_endpoint_R = " + maxRightEndpoint;
         }
     }
 
@@ -345,7 +518,7 @@ public class RBTree<K extends Comparable<K>, V> {
 
     // Constructor for the RBTree class
     public RBTree() {
-        sentinel = getNewNode(null, null);
+        sentinel = new Node();
         sentinel.parent = sentinel;
         sentinel.left = sentinel;
         sentinel.right = sentinel;
@@ -353,9 +526,26 @@ public class RBTree<K extends Comparable<K>, V> {
         root = sentinel;
     }
 
+    public void insertInterval(int[] interval) {
+        System.out.println("\n ----" + interval[0] + " - " + interval[1] + "----");
+        insert(interval[0],true);
+        System.out.println(this.toString());
+        insert(interval[1],false);
+        System.out.println(" ---------- ");
+        System.out.println(this.toString());
+    }
+
+    public float[] findMaxOverlappingInterval() {
+        return new float[]{this.root.maxLeftEndpoint, this.root.maxRightEndpoint};
+    }
+
+    public int getMaximumOverlaps() {
+        return this.root.maxLeft;
+    }
+
     // Create a new node and insert it into the RBTree.
-    public Node insert(K key, V value) {
-        Node z = getNewNode(key, value);  // create the new Node
+    public Node insert(float key, boolean isArrival) {
+        Node z = new Node(key, isArrival);  // create the new Node
         Node x = root;                  // Node whose key is compared with z's
         Node xParent = sentinel;        // x's parent
 
@@ -364,7 +554,7 @@ public class RBTree<K extends Comparable<K>, V> {
         // indicated by the sentinel
         while (x != sentinel) {
             xParent = x;
-            if (key.compareTo(x.key) < 0)
+            if (z.compareTo(x) < 0)
                 x = x.left;
             else
                 x = x.right;
@@ -377,7 +567,7 @@ public class RBTree<K extends Comparable<K>, V> {
         if (xParent == sentinel)  // empty BST?
             root = z;               // then just the one node
         else {                    // link z as the appropriate child of x's parent
-            if (key.compareTo(xParent.key) < 0)
+            if (z.compareTo(xParent) < 0)
                 xParent.left = z;
             else
                 xParent.right = z;
@@ -386,23 +576,27 @@ public class RBTree<K extends Comparable<K>, V> {
         z.left = sentinel;
         z.right = sentinel;
         z.redden();
+
+        // At this point we need to climb back the tree in order to update nodes' augmented attributes
+        x = z;
+        while (x != sentinel) {
+            x = x.parent;
+            x.updateAugmentedAttrs();
+        }
+
         z.rbInsertFixup();
         return z;
     }
 
-    // Overrides the getNewNode method from the superclass.
-    protected Node getNewNode(K key, V value) {
-        return new Node(key, value);
-    }
-
     // Search for a node in the subtree rooted at x with a specific key.
-    public Node search(K key) {
+    public Node search(float key, boolean isArrival) {
         Node x = root;
+        Node tmpNode = new Node(key,isArrival); // temporary node
 
         // Go down the left or right subtree until either we hit the sentinel or
         // find the key.
-        while (x != sentinel && key.compareTo(x.key) != 0) {
-            if (key.compareTo(x.key) < 0)
+        while (x != sentinel && tmpNode.compareTo(x) != 0) {
+            if (tmpNode.compareTo(x) < 0)
                 x = x.left;
             else
                 x = x.right;
