@@ -5,7 +5,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
+import java.util.PriorityQueue;
 
 /**
  * Created by pero on 05/12/2016.
@@ -54,21 +54,22 @@ public class Solver {
     private void computeTotalDuration() {
         // Initialize the event queue with arrivals at the first node of each route
         // Sorted event queue
-        ArrayList<Event> eventQueue = new ArrayList<>();
+        PriorityQueue<Event> eventQueue = new PriorityQueue<Event>();
         for (int i = 0; i < this.currentSolutionRoutes.length; i++) {
             Event newEvent = new Event(i,0,"ARRIVAL",this.testInstance.routeStarts[i]);
             eventQueue.add(newEvent);
         }
-        Collections.sort(eventQueue);
+        // Collections.sort(eventQueue); --old--
 
         // Node queue contains departure times of both parked and waiting vehicles
         HashMap<Integer, ArrayList<LocalTime>> nodeQueues = new HashMap<>();
 
         // We process events (arrivals and departures) until the event queue is not empty
         while (eventQueue.size() > 0) {
-            Event currentEvent = eventQueue.get(0);
+            Event currentEvent = eventQueue.poll(); //now with poll
+            // Event currentEvent = eventQueue.get(0);
             // Delete the current event from the queue
-            eventQueue.remove(currentEvent);
+            //eventQueue.remove(currentEvent);
 
             // Create node queue for the current node if one does not exist
             int currentNodeID = this.currentSolutionRoutes[currentEvent.routeID][currentEvent.nodeRouteIdx];
@@ -109,7 +110,7 @@ public class Solver {
                     this.currentRouteTravelTimes[currentEvent.routeID] += travelTime;
                 }
             }
-            Collections.sort(eventQueue);
+            // Collections.sort(eventQueue);
         }
     }
 
