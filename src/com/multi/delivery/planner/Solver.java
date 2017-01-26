@@ -94,7 +94,6 @@ public class Solver {
                     LocalTime waitUntil = nodeQueues.get(currentNodeID).get(waitingInLine + 1);
                     newEventTime = waitUntil.plusSeconds(this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID));
                     this.currentRouteWaitTimes[currentEvent.routeID] += ChronoUnit.SECONDS.between(currentEvent.time, waitUntil);
-                    ;
                 }
                 nodeQueues.get(currentNodeID).add(newEventTime);
                 Collections.sort(nodeQueues.get(currentNodeID));
