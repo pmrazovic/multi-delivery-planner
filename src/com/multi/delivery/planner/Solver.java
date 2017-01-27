@@ -74,7 +74,10 @@ public class Solver {
                 nodeQueues.put(currentNodeID, new ArrayList<>());
             }
 
+            // Processing arrival and departure events until event queue is not empty
             if (currentEvent.type == "ARRIVAL") {
+                // For arrival events we compute departure events using nodes' waiting queues and duration of the visits
+
                 LocalTime newEventTime = null;
                 if (nodeQueues.get(currentNodeID).size() < this.testInstance.nodeCapacities.get(currentNodeID)) {
                     // Node is not full
@@ -86,12 +89,18 @@ public class Solver {
                     newEventTime = waitUntil.plusSeconds(this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID));
                     this.currentRouteWaitTimes[currentEvent.routeID] += ChronoUnit.SECONDS.between(currentEvent.time, waitUntil);
                 }
+                // Adding new departure time to the node's queue
                 nodeQueues.get(currentNodeID).add(newEventTime);
                 Collections.sort(nodeQueues.get(currentNodeID));
+                // Adding new departure event to the event queue
                 Event newEvent = new Event(currentEvent.routeID, currentEvent.nodeRouteIdx, "DEPARTURE", newEventTime);
                 eventQueue.add(newEvent);
+
             } else if (currentEvent.type == "DEPARTURE") {
+                // For departure events we compute arrival events at the next node by adding travel time to the current time point
+
                 nodeQueues.get(currentNodeID).remove(currentEvent.time);
+                // If the current node is not the last in the route, create new arrival event
                 if (this.currentSolutionRoutes[currentEvent.routeID].length > currentEvent.nodeRouteIdx + 1) {
                     int travelTime = this.testInstance.edgeCosts.get(currentNodeID).get(this.currentSolutionRoutes[currentEvent.routeID][currentEvent.nodeRouteIdx + 1]);
                     LocalTime newEventTime = currentEvent.time.plusSeconds(travelTime);
