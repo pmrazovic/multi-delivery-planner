@@ -59,17 +59,13 @@ public class Solver {
             Event newEvent = new Event(i,0,"ARRIVAL",this.testInstance.routeStarts[i]);
             eventQueue.add(newEvent);
         }
-        // Collections.sort(eventQueue); --old--
 
         // Node queue contains departure times of both parked and waiting vehicles
         HashMap<Integer, ArrayList<LocalTime>> nodeQueues = new HashMap<>();
 
         // We process events (arrivals and departures) until the event queue is not empty
         while (eventQueue.size() > 0) {
-            Event currentEvent = eventQueue.poll(); //now with poll
-            // Event currentEvent = eventQueue.get(0);
-            // Delete the current event from the queue
-            //eventQueue.remove(currentEvent);
+            Event currentEvent = eventQueue.poll();
 
             // Create node queue for the current node if one does not exist
             int currentNodeID = this.currentSolutionRoutes[currentEvent.routeID][currentEvent.nodeRouteIdx];
@@ -83,16 +79,10 @@ public class Solver {
                 if (nodeQueues.get(currentNodeID).size() < this.testInstance.nodeCapacities.get(currentNodeID)) {
                     // Node is not full
                     newEventTime = currentEvent.time.plusSeconds(this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID));
-                } else if (nodeQueues.get(currentNodeID).size() == this.testInstance.nodeCapacities.get(currentNodeID)) {
-                    // Node is full and waiting line is empty
-                    LocalTime waitUntil = nodeQueues.get(currentNodeID).get(0);
-                    newEventTime = waitUntil.plusSeconds(this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID));
-                    this.currentRouteWaitTimes[currentEvent.routeID] += ChronoUnit.SECONDS.between(currentEvent.time, waitUntil);
-                    ;
                 } else {
                     // Node is full and waiting line is not empty
                     int waitingInLine = nodeQueues.get(currentNodeID).size() - this.testInstance.nodeCapacities.get(nodeQueues);
-                    LocalTime waitUntil = nodeQueues.get(currentNodeID).get(waitingInLine + 1);
+                    LocalTime waitUntil = nodeQueues.get(currentNodeID).get(waitingInLine);
                     newEventTime = waitUntil.plusSeconds(this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID));
                     this.currentRouteWaitTimes[currentEvent.routeID] += ChronoUnit.SECONDS.between(currentEvent.time, waitUntil);
                 }
@@ -110,7 +100,6 @@ public class Solver {
                     this.currentRouteTravelTimes[currentEvent.routeID] += travelTime;
                 }
             }
-            // Collections.sort(eventQueue);
         }
     }
 
