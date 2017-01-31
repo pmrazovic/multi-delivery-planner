@@ -40,6 +40,9 @@ public class Solver {
     int[] currentRouteTravelTimes;
     // Wait times
     int[] currentRouteWaitTimes;
+    // wait times for nodes
+	int[][] routeWaitTimesForNodes;
+
 
     public Solver(TestInstance testInstance) {
         // Assigning test instance
@@ -47,6 +50,11 @@ public class Solver {
         this.currentSolutionRoutes = testInstance.routes;
         this.currentRouteTravelTimes = new int[this.testInstance.routeCount];
         this.currentRouteWaitTimes = new int[this.testInstance.routeCount];
+        this.routeWaitTimesForNodes = new int[testInstance.routeCount][];
+		for (int i = 0; i < testInstance.routeCount; i++) {
+			routeWaitTimesForNodes[i] = new int[currentSolutionRoutes[i].length];
+		}
+		
         this.computeTotalDuration();
     }
 
@@ -82,12 +90,15 @@ public class Solver {
                 if (nodeQueues.get(currentNodeID).size() < this.testInstance.nodeCapacities.get(currentNodeID)) {
                     // Node is not full
                     newEventTime = currentEvent.time.plusSeconds(this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID));
+                    routeWaitTimesForNodes[currentEvent.routeID][currentEvent.nodeRouteIdx] = 0;
                 } else {
                     // Node is full and waiting line is not empty
-                    int waitingInLine = nodeQueues.get(currentNodeID).size() - this.testInstance.nodeCapacities.get(nodeQueues);
+                    int waitingInLine = nodeQueues.get(currentNodeID).size() - this.testInstance.nodeCapacities.get(currentNodeID);
                     LocalTime waitUntil = nodeQueues.get(currentNodeID).get(waitingInLine);
                     newEventTime = waitUntil.plusSeconds(this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID));
                     this.currentRouteWaitTimes[currentEvent.routeID] += ChronoUnit.SECONDS.between(currentEvent.time, waitUntil);
+                    routeWaitTimesForNodes[currentEvent.routeID][currentEvent.nodeRouteIdx] = (int) ChronoUnit.SECONDS
+							.between(currentEvent.time, waitUntil);
                 }
                 // Adding new departure time to the node's queue
                 nodeQueues.get(currentNodeID).add(newEventTime);
