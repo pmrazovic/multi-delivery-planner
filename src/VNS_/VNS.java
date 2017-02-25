@@ -99,8 +99,8 @@ public class VNS {
 		ArrayList<Solution> sols = new ArrayList<>();
 
 		for (int z = 0; z < routes.length; z++) {
-			for (int i = 0; i < routes[z].length; i++) {
-				for (int j = 0; j < routes[z].length; j++) {
+			for (int i = 1; i < routes[z].length; i++) {
+				for (int j = 1; j < routes[z].length; j++) {
 					if (i != j) {
 						int[][] altered = new int[routes.length][];
 
@@ -134,8 +134,8 @@ public class VNS {
 		}
 
 		for (int z = 0; z < routes.length; z++) {
-			for (int i = 0; i < routes[z].length; i++) {
-				for (int j = 0; j < routes[z].length; j++) {
+			for (int i = 1; i < routes[z].length; i++) {
+				for (int j = 1; j < routes[z].length; j++) {
 					if (i != j) {
 						// insert move
 						insertInplace(altered[z], i, j);
