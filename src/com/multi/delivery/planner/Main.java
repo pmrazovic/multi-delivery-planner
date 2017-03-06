@@ -31,6 +31,7 @@ public class Main {
         // Solving each of the test instances
         for (TestInstance testInstance : testInstances) {
             Solver newSolver = new Solver(testInstance);
+            newSolver.run();
         }
 
 
