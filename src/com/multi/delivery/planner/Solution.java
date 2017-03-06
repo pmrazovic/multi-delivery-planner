@@ -11,7 +11,7 @@ public class Solution {
     // Corresponding test instance
     TestInstance testInstance;
     // Routes
-    int[][] routes;
+    ArrayList<ArrayList<Integer>> routes;
     // Travel times
     int[] travelTimesPerRoute;
     // Waiting times per route
@@ -30,24 +30,16 @@ public class Solution {
         this.travelTimesPerRoute = new int[this.testInstance.routeCount];
         this.waitTimesPerRoute = new int[this.testInstance.routeCount];
         this.nodeWaitings = new ArrayList<>();
-        //this.waitTimesPerNode = new int[testInstance.routeCount][];
-        //for (int i = 0; i < testInstance.routeCount; i++) {
-        //    this.waitTimesPerNode[i] = new int[this.routes[i].length];
-        //}
         computeTimeCosts();
     }
 
     // Constructor 2 - routes are given
-    public Solution(TestInstance testInstance, int[][] routes) {
+    public Solution(TestInstance testInstance, ArrayList<ArrayList<Integer>> routes) {
         this.testInstance = testInstance;
         this.routes = routes;
         this.travelTimesPerRoute = new int[this.testInstance.routeCount];
         this.waitTimesPerRoute = new int[this.testInstance.routeCount];
         this.nodeWaitings = new ArrayList<>();
-        //this.waitTimesPerNode = new int[testInstance.routeCount][];
-        //for (int i = 0; i < testInstance.routeCount; i++) {
-        //    this.waitTimesPerNode[i] = new int[this.routes[i].length];
-        //}
         computeTimeCosts();
     }
 
@@ -94,7 +86,7 @@ public class Solution {
         // Initialize the event queue with arrivals at the first node of each route
         // Sorted event queue
         PriorityQueue<Event> eventQueue = new PriorityQueue<>();
-        for (int i = 0; i < this.routes.length; i++) {
+        for (int i = 0; i < this.routes.size(); i++) {
             Event newEvent = new Event(i,0,ARRIVAL,this.testInstance.routeStarts[i]);
             eventQueue.add(newEvent);
         }
@@ -107,7 +99,7 @@ public class Solution {
             Event currentEvent = eventQueue.poll();
 
             // Create node queue for the current node if one does not exist
-            int currentNodeID = this.routes[currentEvent.routeID][currentEvent.nodeRouteIdx];
+            int currentNodeID = this.routes.get(currentEvent.routeID).get(currentEvent.nodeRouteIdx);
             if (!nodeQueues.containsKey(currentNodeID)) {
                 // All of the nodes are empty at the beginning (no parked vehicles, no waiting line)
                 nodeQueues.put(currentNodeID, new ArrayList<>());
@@ -131,10 +123,6 @@ public class Solution {
                     nodeWaitings.add(new Waiting(currentEvent.routeID, currentEvent.nodeRouteIdx, newWaitingTime));
                     this.waitTimesPerRoute[currentEvent.routeID] += newWaitingTime;
                     this.totalCost += newWaitingTime + this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID);
-
-                    //this.waitTimesPerNode[currentEvent.routeID][currentEvent.nodeRouteIdx] = (int) ChronoUnit.SECONDS.between(currentEvent.time, waitUntil);
-                    //this.waitTimesPerRoute[currentEvent.routeID] += this.waitTimesPerNode[currentEvent.routeID][currentEvent.nodeRouteIdx];
-                    //this.totalCost += this.waitTimesPerNode[currentEvent.routeID][currentEvent.nodeRouteIdx] + this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID);
                 }
                 // Adding new departure time to the node's queue
                 nodeQueues.get(currentNodeID).add(newEventTime);
@@ -148,8 +136,8 @@ public class Solution {
 
                 nodeQueues.get(currentNodeID).remove(currentEvent.time);
                 // If the current node is not the last in the route, create new arrival event
-                if (this.routes[currentEvent.routeID].length > currentEvent.nodeRouteIdx + 1) {
-                    int travelTime = this.testInstance.edgeCosts.get(currentNodeID).get(this.routes[currentEvent.routeID][currentEvent.nodeRouteIdx + 1]);
+                if (this.routes.get(currentEvent.routeID).size() > currentEvent.nodeRouteIdx + 1) {
+                    int travelTime = this.testInstance.edgeCosts.get(currentNodeID).get(this.routes.get(currentEvent.routeID).get(currentEvent.nodeRouteIdx + 1));
                     LocalTime newEventTime = currentEvent.time.plusSeconds(travelTime);
                     Event newEvent = new Event(currentEvent.routeID, currentEvent.nodeRouteIdx + 1, ARRIVAL, newEventTime);
                     eventQueue.add(newEvent);

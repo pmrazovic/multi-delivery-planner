@@ -50,29 +50,29 @@ public class Solver {
     private Solution createRandomSolution() {
         // TODO: Tune the grasp greedines rate
         float graspGreedinessRate = randomGenerator.nextFloat();
-        int[][] routes = new int[this.testInstance.routeCount][];
+        ArrayList<ArrayList<Integer>> routes = new ArrayList<>();
         for (int i = 0; i < this.testInstance.routeCount; i++) {
-            routes[i] = createRandomRoute(this.testInstance.routes[i], graspGreedinessRate);
+            routes.add(createRandomRoute(this.testInstance.routes.get(i), graspGreedinessRate));
         }
         return new Solution(this.testInstance, routes);
     }
 
     // Creates random route from a given visit list
-    private int[] createRandomRoute(int visitList[], float graspGreedinessRate) {
+    private ArrayList<Integer> createRandomRoute(ArrayList<Integer> visitList, float graspGreedinessRate) {
         // Initial route
-        int[] route = visitList.clone();
+        ArrayList<Integer> route = new ArrayList<>(visitList);
 
         int cursor = 0;
-        while (cursor < route.length - 1) {
+        while (cursor < route.size() - 1) {
             // Restricted candidate list as a treemap (hashmap with sorted keys)
             // Keys are distances, and values are node indices in current route
             int currentNodeIdx = cursor;
             TreeMap<Integer, Integer> rcl = new TreeMap<>();
-            int maxRcl = (int) Math.ceil(graspGreedinessRate * (route.length - cursor - 1));
+            int maxRcl = (int) Math.ceil(graspGreedinessRate * (route.size() - cursor - 1));
 
             // Populating RCL
-            for (int i = cursor+1; i < route.length; i++) {
-                rcl.put(this.testInstance.edgeCosts.get(route[cursor]).get(route[i]), i);
+            for (int i = cursor+1; i < route.size(); i++) {
+                rcl.put(this.testInstance.edgeCosts.get(route.get(cursor)).get(route.get(i)), i);
                 // If size of RCL is larger than maxRCl we remove the farthest node in the list
                 if (rcl.size() > maxRcl) {
                     rcl.remove(rcl.lastKey());
@@ -85,7 +85,7 @@ public class Solver {
             int randomNodeIdx = rcl.get(randomKey);
 
             // Swapping nodes in route
-            swap(route, cursor+1, randomNodeIdx);
+            Collections.swap(route, cursor+1, randomNodeIdx);
 
             // Increasing cursor
             cursor += 1;
@@ -96,20 +96,21 @@ public class Solver {
 
     // Perturbs given solution, i.e. perturbationRate percentage of solution is shuffled
     private Solution perturbateSolution(Solution oldSolution, float perturbationRate) {
-        int[][] perturbedRoutes = new int[oldSolution.routes.length][];
-        for (int i = 0; i < perturbedRoutes.length; i++) {
+        ArrayList<ArrayList<Integer>> perturbedRoutes = new ArrayList<>();
+        for (int i = 0; i < oldSolution.routes.size(); i++) {
             // Cloning original routes
-            perturbedRoutes[i] = oldSolution.routes[i].clone();
+            ArrayList<Integer> newPerturbedRoute = new ArrayList<>(oldSolution.routes.get(i));
             // Size of the perturbation segment
-            int perturbationLength = (int) Math.ceil((perturbedRoutes[i].length - 1) * perturbationRate);
+            int perturbationLength = (int) Math.ceil((newPerturbedRoute.size() - 1) * perturbationRate);
             // If perturbation segment consist of only one node, we increase it by one
             perturbationLength = perturbationLength == 1 ? 2 : perturbationLength;
             // Start position of the perturbation segment
-            int pertubationStartIdx = 1 + randomGenerator.nextInt(perturbedRoutes[i].length - perturbationLength);
+            int pertubationStartIdx = 1 + randomGenerator.nextInt(newPerturbedRoute.size() - perturbationLength);
             // Shuffle the perturbation segment
             for (int j = pertubationStartIdx; j < pertubationStartIdx + perturbationLength; j++) {
-                swap(perturbedRoutes[i], j, pertubationStartIdx + randomGenerator.nextInt(perturbationLength));
+                Collections.swap(newPerturbedRoute, j, pertubationStartIdx + randomGenerator.nextInt(perturbationLength));
             }
+            perturbedRoutes.add(newPerturbedRoute);
         }
 
         return new Solution(this.testInstance, perturbedRoutes);
@@ -124,16 +125,5 @@ public class Solver {
 
         throw new UnsupportedOperationException("Not implemented yet...");
     }
-
-    // Helper methods ----------------------------------------------------------
-
-    // Swaps two node in given route
-    private void swap(int[] route, int i, int j) {
-        int temp = route[i];
-        route[i] = route[j];
-        route[j] = temp;
-    }
-
-
 
 }

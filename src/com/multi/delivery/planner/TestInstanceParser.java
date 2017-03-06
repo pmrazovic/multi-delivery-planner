@@ -10,6 +10,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -71,37 +73,37 @@ public class TestInstanceParser {
             // Parsing routes
             // Routes are stored in 2dim array
             int routeCount = routeLines.size();
-            int[][] routes = new int[routeCount][];
+            ArrayList<ArrayList<Integer>> routes = new ArrayList<>();
             HashMap<Integer, HashMap<Integer,Integer>> delivery_durations = new HashMap<>();
             LocalTime[] routeStarts = new LocalTime[routeCount];
             DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
             for (int i = 0; i < routeLines.size(); i++) {
                 String[] routeLineElements = routeLines.get(i).split(",");
                 routeStarts[i] = LocalTime.parse(routeLineElements[0],timeFormatter);
-                int[] stops = new int[routeLineElements.length-1];
+                ArrayList<Integer> stops = new ArrayList<>();
                 if (!delivery_durations.containsKey(i)) {
                     delivery_durations.put(i, new HashMap<>());
                 }
                 for (int j = 1; j < routeLineElements.length; j++) {
                     String[] stopElements = routeLineElements[j].split("\\|");
-                    stops[j-1] = Integer.parseInt(stopElements[0]);
-                    delivery_durations.get(i).put(stops[j-1], Integer.parseInt(stopElements[1]));
+                    stops.add(Integer.parseInt(stopElements[0]));
+                    delivery_durations.get(i).put(stops.get(j-1), Integer.parseInt(stopElements[1]));
                 }
-                routes[i] = stops;
+                routes.add(stops);
             }
 
             // Parsing complexity information
             float instanceComplexity = Float.parseFloat(complexityLines.get(0));
 
             // Parsing TSP ordering
-            int[][] tspRoutes = new int[routeCount][];
+            ArrayList<ArrayList<Integer>> tspRoutes = new ArrayList<>();
             for (int i = 0; i < tspSolutionLines.size(); i++) {
                 String[] tspLineElements = tspSolutionLines.get(i).split(",");
-                int[] stops = new int[tspLineElements.length];
+                ArrayList<Integer> stops = new ArrayList<>();
                 for (int j = 0; j < tspLineElements.length; j++) {
-                    stops[j] = Integer.parseInt(tspLineElements[j]);
+                    stops.add(Integer.parseInt(tspLineElements[j]));
                 }
-                tspRoutes[i] = stops;
+                tspRoutes.add(stops);
             }
 
             // Creating a new test instance with parsed settings
