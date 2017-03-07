@@ -38,8 +38,8 @@ public class TestInstanceParser {
             List<String> routeLines = fileLines.subList(startIdxRoutes+1, startIdxNodes);
             List<String> nodeLines = fileLines.subList(startIdxNodes+1, startIdxEdges);
             List<String> edgeLines = fileLines.subList(startIdxEdges+1, startIdxComplexity);
-            List<String> complexityLines = fileLines.subList(startIdxComplexity+1,startIdxTspSolution);
-            List<String> tspSolutionLines = fileLines.subList(startIdxTspSolution+1,fileLines.size());
+            //List<String> complexityLines = fileLines.subList(startIdxComplexity+1,startIdxTspSolution);
+            //List<String> tspSolutionLines = fileLines.subList(startIdxTspSolution+1,fileLines.size());
 
             // Parsing nodes
             // Node IDs are stored in arrays, and capacities in hash
@@ -93,21 +93,22 @@ public class TestInstanceParser {
             }
 
             // Parsing complexity information
-            float instanceComplexity = Float.parseFloat(complexityLines.get(0));
+            //float instanceComplexity = Float.parseFloat(complexityLines.get(0));
 
             // Parsing TSP ordering
-            ArrayList<ArrayList<Integer>> tspRoutes = new ArrayList<>();
-            for (int i = 0; i < tspSolutionLines.size(); i++) {
-                String[] tspLineElements = tspSolutionLines.get(i).split(",");
-                ArrayList<Integer> stops = new ArrayList<>();
-                for (int j = 0; j < tspLineElements.length; j++) {
-                    stops.add(Integer.parseInt(tspLineElements[j]));
-                }
-                tspRoutes.add(stops);
-            }
+//            ArrayList<ArrayList<Integer>> tspRoutes = new ArrayList<>();
+//            for (int i = 0; i < tspSolutionLines.size(); i++) {
+//                String[] tspLineElements = tspSolutionLines.get(i).split(",");
+//                ArrayList<Integer> stops = new ArrayList<>();
+//                for (int j = 0; j < tspLineElements.length; j++) {
+//                    stops.add(Integer.parseInt(tspLineElements[j]));
+//                }
+//                tspRoutes.add(stops);
+//            }
 
             // Creating a new test instance with parsed settings
-            newTestInstance = new TestInstance(nodeCount,routeCount,nodeIDs,nodeCapacities,edgeCosts,routes,delivery_durations,routeStarts,tspRoutes,instanceComplexity);
+            //newTestInstance = new TestInstance(nodeCount,routeCount,nodeIDs,nodeCapacities,edgeCosts,routes,delivery_durations,routeStarts,tspRoutes,instanceComplexity);
+            newTestInstance = new TestInstance(nodeCount,routeCount,nodeIDs,nodeCapacities,edgeCosts,routes,delivery_durations,routeStarts,new ArrayList<>(),0);
 
         } catch (IOException e) {
             System.out.println("An error has occurred while reading test instance file \"" + filePath.toString() + "\"!");

@@ -1,6 +1,7 @@
 package com.multi.delivery.planner;
 
 import java.util.*;
+import java.util.stream.IntStream;
 
 /**
  * Created by pero on 05/12/2016.
@@ -20,26 +21,39 @@ public class Solver {
 
     // Starts solving process
     public Solution run() {
-        Solution solution = new Solution(this.testInstance);
-        Solution newSolution = createRandomSolution();
-        vns();
-        return newSolution;
+        int kMax = 5;
+        int countNoImprovement = 0;
+        Solution bestSolution = createRandomSolution();
+        while (countNoImprovement < 1000) {
+            Solution initialSolution = createRandomSolution();
+            Solution improvedSolution = vns(initialSolution,kMax);
+            if (improvedSolution.totalCost < bestSolution.totalCost) {
+                bestSolution = improvedSolution;
+                countNoImprovement = 0;
+            } else {
+                countNoImprovement++;
+            }
+        }
+        return bestSolution;
     }
 
     // VNS procedure
-    public Solution vns() {
+    public Solution vns(Solution initialSolution, int kMax) {
         int k = 1;
-        int kMax = 5;
-
-        Solution bestSolution = createRandomSolution();
+        Solution bestSolution = initialSolution;
         while (k <= kMax) {
-            // TODO: Perturbation rate can be chosen w.r.t. current depth k
-            float perturbationRate = 0.2f;
+            // TODO: Tune the perturbation rate
+            float perturbationRate = 1.0f/kMax;
             Solution perturbedSolution = perturbateSolution(bestSolution, perturbationRate);
-
             // Best candidate solution based on perturbed solution
             Solution candidateSolution = localSearch(perturbedSolution,k);
 
+            if (candidateSolution.totalCost < bestSolution.totalCost) {
+                bestSolution = candidateSolution;
+                k = 1;
+            } else {
+                k = k + 1;
+            }
         }
 
         return bestSolution;
@@ -118,12 +132,56 @@ public class Solver {
 
     // Searches a solution neighbourhood for a local optimum
     private Solution localSearch(Solution perturbedSolution, int k) {
-        for (int i = 0; i < k; i++) {
-            ArrayList<Solution.Waiting> waitings = perturbedSolution.nodeWaitings;
-            // TODO: Finish the implementation
+        Solution bestSolution = perturbedSolution;
+        boolean improved = true;
+        while (improved) {
+            improved = false;
+            // TODO: Tune the greedines rate
+            float greedinessRate = randomGenerator.nextFloat();
+            // Get ranked waitings
+            ArrayList<Solution.Waiting> waitings = bestSolution.nodeWaitings;
+
+            // TODO: If there is no waiting we choose a node to be moved in another way
+            if (waitings.size() == 0) break;
+
+            // Restrict the candidate list
+            int maxRcl = (int) Math.ceil(greedinessRate * waitings.size());
+            // Choose one waiting at random from the RCL
+            Solution.Waiting randomWaiting = waitings.get(randomGenerator.nextInt(maxRcl));
+            // Target route that will be changed
+            ArrayList<Integer> targetRoute = perturbedSolution.routes.get(randomWaiting.routeIdx);
+            // We will move node in targetRoute from position randomWaiting.nodeRouteIdx to a position
+            // which will most increase the total score
+            for (int movePosition = 1; movePosition < targetRoute.size(); movePosition++) {
+                ArrayList<Integer> updatedTargetRoute = moveNodeWithingRoute(targetRoute,randomWaiting.nodeRouteIdx,movePosition);
+                ArrayList<ArrayList<Integer>> updatedRoutes = new ArrayList<>(perturbedSolution.routes);
+                updatedRoutes.set(randomWaiting.routeIdx, updatedTargetRoute);
+                Solution newSolution = new Solution(this.testInstance,updatedRoutes);
+                if (newSolution.totalCost < bestSolution.totalCost) {
+                    bestSolution = newSolution;
+                    improved = true;
+                }
+            }
         }
 
-        throw new UnsupportedOperationException("Not implemented yet...");
+        return bestSolution;
     }
+
+    // Helper methods -----------------------------------------------------
+
+    // Method creates new array list by moving an element from oldIdx to newIdx
+    private ArrayList<Integer> moveNodeWithingRoute(ArrayList<Integer> originalRoute, int oldIdx, int newIdx) {
+        ArrayList<Integer> newRoute = new ArrayList<>(originalRoute);
+        // We could simply use: route.add(newIdx, newRoute.remove(oldIdx)),
+        // but the following method is more efficient
+        Integer fromValue = newRoute.get(oldIdx);
+        int delta = oldIdx < newIdx ? 1 : -1;
+        for (int i = oldIdx; i != newIdx; i += delta) {
+            newRoute.set(i, newRoute.get(i + delta));
+        }
+        newRoute.set(newIdx, fromValue);
+        return newRoute;
+    }
+
 
 }
