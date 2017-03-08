@@ -15,8 +15,6 @@ public class Solver {
     public Solver(TestInstance testInstance) {
         // Assigning test instance
         this.testInstance = testInstance;
-        Solution solution = new Solution(testInstance);
-        solution.computeTimeCosts();
     }
 
     // Starts solving process

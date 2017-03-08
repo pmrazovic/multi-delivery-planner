@@ -40,7 +40,6 @@ public class TestInstanceParser {
             List<String> edgeLines = fileLines.subList(startIdxEdges+1, startIdxComplexity);
             //List<String> complexityLines = fileLines.subList(startIdxComplexity+1,startIdxTspSolution);
             //List<String> tspSolutionLines = fileLines.subList(startIdxTspSolution+1,fileLines.size());
-
             // Parsing nodes
             // Node IDs are stored in arrays, and capacities in hash
             int nodeCount = nodeLines.size();
@@ -108,7 +107,9 @@ public class TestInstanceParser {
 
             // Creating a new test instance with parsed settings
             //newTestInstance = new TestInstance(nodeCount,routeCount,nodeIDs,nodeCapacities,edgeCosts,routes,delivery_durations,routeStarts,tspRoutes,instanceComplexity);
+            // TODO: delete
             newTestInstance = new TestInstance(nodeCount,routeCount,nodeIDs,nodeCapacities,edgeCosts,routes,delivery_durations,routeStarts,new ArrayList<>(),0);
+
 
         } catch (IOException e) {
             System.out.println("An error has occurred while reading test instance file \"" + filePath.toString() + "\"!");

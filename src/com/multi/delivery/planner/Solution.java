@@ -113,6 +113,7 @@ public class Solution {
                 if (nodeQueues.get(currentNodeID).size() < this.testInstance.nodeCapacities.get(currentNodeID)) {
                     // Node is not full
                     newEventTime = currentEvent.time.plusSeconds(this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID));
+                    this.totalCost += this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID);
                 } else {
                     // Node is full and waiting line is not empty
                     int waitingInLine = nodeQueues.get(currentNodeID).size() - this.testInstance.nodeCapacities.get(currentNodeID);
