@@ -1,6 +1,7 @@
 package com.multi.delivery.planner;
 
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -106,26 +107,57 @@ public class Solver {
         return route;
     }
 
+//    // Perturbs given solution, i.e. perturbationRate percentage of solution is shuffled
+//    private Solution perturbateSolution(Solution oldSolution, float perturbationRate) {
+//        ArrayList<ArrayList<Integer>> perturbedRoutes = new ArrayList<>();
+//        for (int i = 0; i < oldSolution.routes.size(); i++) {
+//            // Cloning original routes
+//            ArrayList<Integer> newPerturbedRoute = new ArrayList<>(oldSolution.routes.get(i));
+//            // Size of the perturbation segment
+//            int perturbationLength = (int) Math.ceil((newPerturbedRoute.size() - 1) * perturbationRate);
+//            // If perturbation segment consist of only one node, we increase it by one
+//            perturbationLength = perturbationLength == 1 ? 2 : perturbationLength;
+//            // Start position of the perturbation segment
+//            int pertubationStartIdx = 1 + randomGenerator.nextInt(newPerturbedRoute.size() - perturbationLength);
+//            // Shuffle the perturbation segment
+//            for (int j = pertubationStartIdx; j < pertubationStartIdx + perturbationLength; j++) {
+//                Collections.swap(newPerturbedRoute, j, pertubationStartIdx + randomGenerator.nextInt(perturbationLength));
+//            }
+//            perturbedRoutes.add(newPerturbedRoute);
+//        }
+//
+//        return new Solution(this.testInstance, perturbedRoutes);
+//    }
+
     // Perturbs given solution, i.e. perturbationRate percentage of solution is shuffled
     private Solution perturbateSolution(Solution oldSolution, float perturbationRate) {
-        ArrayList<ArrayList<Integer>> perturbedRoutes = new ArrayList<>();
-        for (int i = 0; i < oldSolution.routes.size(); i++) {
+        // Create a list of route indexes so we can choose n unique routes
+        ArrayList<Integer> routeIndexes = new ArrayList<>();
+        for (int i = 0; i < oldSolution.testInstance.routeCount; i++) {
+            routeIndexes.add(i);
+        }
+        Collections.shuffle(routeIndexes);
+        int perturbationCount = (int) Math.ceil(oldSolution.testInstance.routeCount * perturbationRate);
+        ArrayList<Integer> perturbatedRouteIdxs = new ArrayList<>(routeIndexes.subList(0, perturbationCount));
+
+        ArrayList<ArrayList<Integer>> perturbedRoutes = new ArrayList<>(oldSolution.routes);
+        for (int routeIdx : perturbatedRouteIdxs) {
             // Cloning original routes
-            ArrayList<Integer> newPerturbedRoute = new ArrayList<>(oldSolution.routes.get(i));
+            ArrayList<Integer> newPerturbedRoute = new ArrayList<>(oldSolution.routes.get(routeIdx));
             // Size of the perturbation segment
-            int perturbationLength = (int) Math.ceil((newPerturbedRoute.size() - 1) * perturbationRate);
+            // TODO: for now, always 20% of the route is shuffled. We may need to tune this percentage
+            int perturbationLength = (int) Math.ceil((newPerturbedRoute.size() - 1) * 0.3f);
             // If perturbation segment consist of only one node, we increase it by one
             perturbationLength = perturbationLength == 1 ? 2 : perturbationLength;
             // Start position of the perturbation segment
             int pertubationStartIdx = 1 + randomGenerator.nextInt(newPerturbedRoute.size() - perturbationLength);
-            // Shuffle the perturbation segment
             for (int j = pertubationStartIdx; j < pertubationStartIdx + perturbationLength; j++) {
                 Collections.swap(newPerturbedRoute, j, pertubationStartIdx + randomGenerator.nextInt(perturbationLength));
             }
-            perturbedRoutes.add(newPerturbedRoute);
+            perturbedRoutes.set(routeIdx, newPerturbedRoute);
         }
 
-        return new Solution(this.testInstance, perturbedRoutes);
+        return new Solution(oldSolution.testInstance, perturbedRoutes);
     }
 
     // Searches a solution neighbourhood for a local optimum
