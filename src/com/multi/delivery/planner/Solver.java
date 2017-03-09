@@ -131,6 +131,8 @@ public class Solver {
     // Searches a solution neighbourhood for a local optimum
     private Solution localSearch(Solution perturbedSolution, int k) {
         Solution bestSolution = perturbedSolution;
+
+        // 1. Shift moves to reduce waiting time
         boolean improved = true;
         while (improved) {
             improved = false;
@@ -139,28 +141,65 @@ public class Solver {
             // Get ranked waitings
             ArrayList<Solution.Waiting> waitings = bestSolution.nodeWaitings;
 
-            // TODO: If there is no waiting we choose a node to be moved in another way
-            if (waitings.size() == 0) break;
-
-            // Restrict the candidate list
-            int maxRcl = (int) Math.ceil(greedinessRate * waitings.size());
-            // Choose one waiting at random from the RCL
-            Solution.Waiting randomWaiting = waitings.get(randomGenerator.nextInt(maxRcl));
-            // Target route that will be changed
-            ArrayList<Integer> targetRoute = perturbedSolution.routes.get(randomWaiting.routeIdx);
-            // We will move node in targetRoute from position randomWaiting.nodeRouteIdx to a position
-            // which will most increase the total score
-            for (int movePosition = 1; movePosition < targetRoute.size(); movePosition++) {
-                ArrayList<Integer> updatedTargetRoute = moveNodeWithingRoute(targetRoute,randomWaiting.nodeRouteIdx,movePosition);
-                ArrayList<ArrayList<Integer>> updatedRoutes = new ArrayList<>(perturbedSolution.routes);
-                updatedRoutes.set(randomWaiting.routeIdx, updatedTargetRoute);
-                Solution newSolution = new Solution(this.testInstance,updatedRoutes);
-                if (newSolution.totalCost < bestSolution.totalCost) {
-                    bestSolution = newSolution;
+            if (waitings.size() != 0) {
+                // Restrict the candidate list
+                int maxRcl = (int) Math.ceil(greedinessRate * waitings.size());
+                // Choose one waiting at random from the RCL
+                Solution.Waiting randomWaiting = waitings.get(randomGenerator.nextInt(maxRcl));
+                // Target route that will be changed
+                ArrayList<Integer> targetRoute = bestSolution.routes.get(randomWaiting.routeIdx);
+                // We will move node in targetRoute from position randomWaiting.nodeRouteIdx to a position
+                // which will most increase the total score
+                Solution candidateSolution = bestSolution;
+                for (int movePosition = 1; movePosition < targetRoute.size(); movePosition++) {
+                    ArrayList<Integer> updatedTargetRoute = moveNodeWithinRoute(targetRoute, randomWaiting.nodeRouteIdx, movePosition);
+                    ArrayList<ArrayList<Integer>> updatedRoutes = new ArrayList<>(bestSolution.routes);
+                    updatedRoutes.set(randomWaiting.routeIdx, updatedTargetRoute);
+                    Solution newSolution = new Solution(this.testInstance, updatedRoutes);
+                    if (newSolution.totalCost < candidateSolution.totalCost) {
+                        candidateSolution = newSolution;
+                    }
+                }
+                // Check if solution is improved
+                if (candidateSolution.totalCost < bestSolution.totalCost) {
+                    bestSolution = candidateSolution;
                     improved = true;
                 }
             }
         }
+
+        // 2. 2opt moves to reduce waiting time
+        improved = true;
+        while (improved) {
+            improved = false;
+            // TODO: Tune the greedines rate
+            float greedinessRate = randomGenerator.nextFloat();
+            // Restrict the candidate list
+            int maxRcl = (int) Math.ceil(greedinessRate * this.testInstance.routeCount);
+            // Choose one routeIdx at random
+            int randomRouteIdx = bestSolution.routesByTravelCost[randomGenerator.nextInt(maxRcl)];
+            // Target route that will be updated
+            ArrayList<Integer> targetRoute = bestSolution.routes.get(randomRouteIdx);
+            // We will perform 2opt move in targetRoute at the position which will most increase the total score
+            Solution candidateSolution = bestSolution;
+            for (int i = 1; i < targetRoute.size()-1; i++) {
+                for (int j = i+1; j < targetRoute.size(); j++) {
+                    ArrayList<Integer> updatedTargetRoute = twoOptSwap(targetRoute,i,j);
+                    ArrayList<ArrayList<Integer>> updatedRoutes = new ArrayList<>(bestSolution.routes);
+                    updatedRoutes.set(randomRouteIdx, updatedTargetRoute);
+                    Solution newSolution = new Solution(this.testInstance, updatedRoutes);
+                    if (newSolution.totalCost < candidateSolution.totalCost) {
+                        candidateSolution = newSolution;
+                    }
+                }
+            }
+            // Check if solution is improved
+            if (candidateSolution.totalCost < bestSolution.totalCost) {
+                bestSolution = candidateSolution;
+                improved = true;
+            }
+        }
+
 
         return bestSolution;
     }
@@ -168,7 +207,7 @@ public class Solver {
     // Helper methods -----------------------------------------------------
 
     // Method creates new array list by moving an element from oldIdx to newIdx
-    private ArrayList<Integer> moveNodeWithingRoute(ArrayList<Integer> originalRoute, int oldIdx, int newIdx) {
+    private ArrayList<Integer> moveNodeWithinRoute(ArrayList<Integer> originalRoute, int oldIdx, int newIdx) {
         ArrayList<Integer> newRoute = new ArrayList<>(originalRoute);
         // We could simply use: route.add(newIdx, newRoute.remove(oldIdx)),
         // but the following method is more efficient
@@ -178,6 +217,20 @@ public class Solver {
             newRoute.set(i, newRoute.get(i + delta));
         }
         newRoute.set(newIdx, fromValue);
+        return newRoute;
+    }
+
+    // Method creates new array list by performing 2opt swap
+    private ArrayList<Integer> twoOptSwap(ArrayList<Integer> originalRoute, int i, int j) {
+        ArrayList<Integer> newRoute = new ArrayList<>(originalRoute);
+        int l = j;
+        int limit = i + ((j-i)/2);
+        for (int k = i; k <= limit; k++) {
+            int temp = newRoute.get(k);
+            newRoute.set(k,newRoute.get(l));
+            newRoute.set(l,temp);
+            l--;
+        }
         return newRoute;
     }
 

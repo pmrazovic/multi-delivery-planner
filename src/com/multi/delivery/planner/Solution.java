@@ -14,10 +14,10 @@ public class Solution {
     ArrayList<ArrayList<Integer>> routes;
     // Travel times
     int[] travelTimesPerRoute;
+    // Route indices sorted by routes' travel times
+    Integer[] routesByTravelCost;
     // Waiting times per route
     int[] waitTimesPerRoute;
-    // Waiting times per node
-    //int[][] waitTimesPerNode;
     // Sorted list of waiting objects
     ArrayList<Waiting> nodeWaitings;
     // Total cost
@@ -150,6 +150,40 @@ public class Solution {
 
         // Sorting node waitings
         Collections.sort(nodeWaitings);
-
+        // Sorting travel times
+        ArrayIndexComparator comparator = new ArrayIndexComparator(this.travelTimesPerRoute);
+        this.routesByTravelCost = comparator.createIndexArray();
+        Arrays.sort(this.routesByTravelCost, Collections.reverseOrder(comparator));
     }
+
+    // Helper methods and classes -------------------------------------------------------
+
+    // Comparator for index sorting
+    public class ArrayIndexComparator implements Comparator<Integer>
+    {
+        private final int[] array;
+
+        public ArrayIndexComparator(int[] array)
+        {
+            this.array = array;
+        }
+
+        public Integer[] createIndexArray()
+        {
+            Integer[] indexes = new Integer[array.length];
+            for (int i = 0; i < array.length; i++)
+            {
+                indexes[i] = i; // Autoboxing
+            }
+            return indexes;
+        }
+
+        @Override
+        public int compare(Integer index1, Integer index2)
+        {
+            // Autounbox from Integer to int to use as array indexes
+            return array[index1]-array[index2];
+        }
+    }
+
 }
