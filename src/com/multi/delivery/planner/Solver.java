@@ -212,7 +212,7 @@ public class Solver {
         return candidateSolution;
     }
 
-    // Chooses k routes at random, and searches for the best 2opt move
+    // Chooses k routes at random from RCL, and searches for the best 2opt move
     private Solution twoOptMove(Solution bestSolution, float greedinessRate, int k) {
         Solution candidateSolution = bestSolution;
         // Restrict the candidate list
@@ -223,17 +223,19 @@ public class Solver {
         } else if (k > this.testInstance.routeCount) {
             maxRcl = k = this.testInstance.routeCount;
         }
-        ArrayList<Integer> randomRouteIdxs = uniqueRandomFromRange(0,maxRcl,k);
+        // RCL is composed of maxRcl longest routes (with highest travel time)
+        // We first randomly choose indexes of elements in RCL
+        ArrayList<Integer> randomRclIdxs = uniqueRandomFromRange(0,maxRcl,k);
 
-        for (int randomRouteIdx : randomRouteIdxs) {
+        for (int randomRclIdx : randomRclIdxs) {
             // Target route that will be updated
-            ArrayList<Integer> targetRoute = bestSolution.routes.get(randomRouteIdx);
+            ArrayList<Integer> targetRoute = bestSolution.routes.get(bestSolution.routesByTravelCost[randomRclIdx]);
             // We will perform 2opt move in targetRoute at the position which will most increase the total score
             for (int i = 1; i < targetRoute.size()-1; i++) {
                 for (int j = i+1; j < targetRoute.size(); j++) {
                     ArrayList<Integer> updatedTargetRoute = twoOptSwap(targetRoute,i,j);
                     ArrayList<ArrayList<Integer>> updatedRoutes = new ArrayList<>(bestSolution.routes);
-                    updatedRoutes.set(randomRouteIdx, updatedTargetRoute);
+                    updatedRoutes.set(bestSolution.routesByTravelCost[randomRclIdx], updatedTargetRoute);
                     Solution newSolution = new Solution(this.testInstance, updatedRoutes);
                     if (newSolution.totalCost < candidateSolution.totalCost) {
                         candidateSolution = newSolution;
