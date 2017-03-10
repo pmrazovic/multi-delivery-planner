@@ -20,29 +20,36 @@ public class Solver {
 
     // Starts solving process
     public Solution run() {
-        int kMax = 5;
+        int kMax = 20;
         int countNoImprovement = 0;
+        // Create random solution using GRASP
         Solution bestSolution = createRandomSolution();
-        while (countNoImprovement < 1000) {
+        // Repeat until solution has not been improved in certain number of itteration
+        while (countNoImprovement < 300) {
+            // Create random solution using GRASP
             Solution initialSolution = createRandomSolution();
+            // Improve the solution using VNS
             Solution improvedSolution = vns(initialSolution,kMax);
             if (improvedSolution.totalCost < bestSolution.totalCost) {
+                // Solution is improved
                 bestSolution = improvedSolution;
                 countNoImprovement = 0;
             } else {
+                // Solution is not improved
                 countNoImprovement++;
             }
         }
         return bestSolution;
     }
 
-    // VNS procedure
+    // Method implements VNS metaheuristic
     public Solution vns(Solution initialSolution, int kMax) {
         int k = 1;
         Solution bestSolution = initialSolution;
         while (k <= kMax) {
-            // TODO: Tune the perturbation rate
-            float perturbationRate = 1.0f/kMax;
+            // TODO: Tune the perturbationRate parameter if needed
+            float perturbationRate = 0.7f/kMax;
+            // Perturb the solution
             Solution perturbedSolution = perturbateSolution(bestSolution, perturbationRate);
             // Best candidate solution based on perturbed solution
             Solution candidateSolution = localSearch(perturbedSolution,k);
@@ -61,9 +68,11 @@ public class Solver {
 
     // Creates random solution using GRASP
     private Solution createRandomSolution() {
-        // TODO: Tune the grasp greedines rate
+        // TODO: Tune the graspGreedinessRate parameter if needed
+        // graspGreedinessRate is used to compute size of RCL
         float graspGreedinessRate = randomGenerator.nextFloat();
         ArrayList<ArrayList<Integer>> routes = new ArrayList<>();
+        // Call GRASP construction method for each route
         for (int i = 0; i < this.testInstance.routeCount; i++) {
             routes.add(createRandomRoute(this.testInstance.routes.get(i), graspGreedinessRate));
         }
@@ -107,46 +116,22 @@ public class Solver {
         return route;
     }
 
-//    // Perturbs given solution, i.e. perturbationRate percentage of solution is shuffled
-//    private Solution perturbateSolution(Solution oldSolution, float perturbationRate) {
-//        ArrayList<ArrayList<Integer>> perturbedRoutes = new ArrayList<>();
-//        for (int i = 0; i < oldSolution.routes.size(); i++) {
-//            // Cloning original routes
-//            ArrayList<Integer> newPerturbedRoute = new ArrayList<>(oldSolution.routes.get(i));
-//            // Size of the perturbation segment
-//            int perturbationLength = (int) Math.ceil((newPerturbedRoute.size() - 1) * perturbationRate);
-//            // If perturbation segment consist of only one node, we increase it by one
-//            perturbationLength = perturbationLength == 1 ? 2 : perturbationLength;
-//            // Start position of the perturbation segment
-//            int pertubationStartIdx = 1 + randomGenerator.nextInt(newPerturbedRoute.size() - perturbationLength);
-//            // Shuffle the perturbation segment
-//            for (int j = pertubationStartIdx; j < pertubationStartIdx + perturbationLength; j++) {
-//                Collections.swap(newPerturbedRoute, j, pertubationStartIdx + randomGenerator.nextInt(perturbationLength));
-//            }
-//            perturbedRoutes.add(newPerturbedRoute);
-//        }
-//
-//        return new Solution(this.testInstance, perturbedRoutes);
-//    }
-
-    // Perturbs given solution, i.e. perturbationRate percentage of solution is shuffled
+    // Perturbs given solution, i.e. perturbationRate percentage of routes are shuffled
     private Solution perturbateSolution(Solution oldSolution, float perturbationRate) {
-        // Create a list of route indexes so we can choose n unique routes
-        ArrayList<Integer> routeIndexes = new ArrayList<>();
-        for (int i = 0; i < oldSolution.testInstance.routeCount; i++) {
-            routeIndexes.add(i);
-        }
-        Collections.shuffle(routeIndexes);
+        // Total number of routes that will be shuffled
         int perturbationCount = (int) Math.ceil(oldSolution.testInstance.routeCount * perturbationRate);
-        ArrayList<Integer> perturbatedRouteIdxs = new ArrayList<>(routeIndexes.subList(0, perturbationCount));
+        // Choose routes at random
+        ArrayList<Integer> perturbatedRouteIdxs = uniqueRandomFromRange(0,oldSolution.testInstance.routeCount,perturbationCount);
 
+        // Copy old routes
         ArrayList<ArrayList<Integer>> perturbedRoutes = new ArrayList<>(oldSolution.routes);
         for (int routeIdx : perturbatedRouteIdxs) {
-            // Cloning original routes
+            // Cloning original route
             ArrayList<Integer> newPerturbedRoute = new ArrayList<>(oldSolution.routes.get(routeIdx));
             // Size of the perturbation segment
-            // TODO: for now, always 20% of the route is shuffled. We may need to tune this percentage
-            int perturbationLength = (int) Math.ceil((newPerturbedRoute.size() - 1) * 0.3f);
+            // For now we shuffle all of the nodes in the route, except the first one
+            // Other option is to shuffle only a percentage of nodes, i.e. (int) Math.ceil((newPerturbedRoute.size() - 1) * shufflePercenatge)
+            int perturbationLength = newPerturbedRoute.size() - 1;
             // If perturbation segment consist of only one node, we increase it by one
             perturbationLength = perturbationLength == 1 ? 2 : perturbationLength;
             // Start position of the perturbation segment
@@ -161,28 +146,58 @@ public class Solver {
     }
 
     // Searches a solution neighbourhood for a local optimum
+    // The method combines two local search moves:
+    //  (1) shift move - repositions a node within a route to reduce waiting time
+    //  (2) 2opt move - 2opt swap within route to reduce travel time
     private Solution localSearch(Solution perturbedSolution, int k) {
         Solution bestSolution = perturbedSolution;
 
-        // 1. Shift moves to reduce waiting time
+        // Local search looks for the best possible shift and 2opt move until the improvement cannot be found
         boolean improved = true;
         while (improved) {
             improved = false;
-            // TODO: Tune the greedines rate
+            // TODO: Tune the greedinesRate parameter if needed
             float greedinessRate = randomGenerator.nextFloat();
-            // Get ranked waitings
-            ArrayList<Solution.Waiting> waitings = bestSolution.nodeWaitings;
 
-            if (waitings.size() != 0) {
-                // Restrict the candidate list
-                int maxRcl = (int) Math.ceil(greedinessRate * waitings.size());
+            // ----- 1. Shift moves to reduce waiting time -----
+            Solution candidateSolution = shiftMove(bestSolution,greedinessRate,k);
+            // ----- 2. 2opt moves to reduce travel time -----
+            candidateSolution = twoOptMove(candidateSolution,greedinessRate,k);
+
+            // Check if solution is improved
+            if (candidateSolution.totalCost < bestSolution.totalCost) {
+                bestSolution = candidateSolution;
+                improved = true;
+            }
+        }
+
+        return bestSolution;
+    }
+
+    // Chooses k nodes at random from RCL, and searches for the best shift move
+    private Solution shiftMove(Solution bestSolution, float greedinessRate, int k) {
+        Solution candidateSolution = bestSolution;
+        // Get ranked waitings
+        ArrayList<Solution.Waiting> waitings = bestSolution.nodeWaitings;
+        if (waitings.size() != 0) {
+            // Restrict the candidate list
+            int maxRcl = (int) Math.ceil(greedinessRate * waitings.size());
+            // If maxRcl is too small, or k is to large
+            if (maxRcl < k && k <= waitings.size()) {
+                maxRcl = k;
+            } else if (k > waitings.size()) {
+                maxRcl = k = waitings.size();
+            }
+            // Choose waitings at random
+            ArrayList<Integer> randomWaitingIdxs = uniqueRandomFromRange(0,maxRcl,k);
+
+            for (Integer randomWaitingIdx: randomWaitingIdxs) {
                 // Choose one waiting at random from the RCL
-                Solution.Waiting randomWaiting = waitings.get(randomGenerator.nextInt(maxRcl));
+                Solution.Waiting randomWaiting = waitings.get(randomWaitingIdx);
                 // Target route that will be changed
                 ArrayList<Integer> targetRoute = bestSolution.routes.get(randomWaiting.routeIdx);
                 // We will move node in targetRoute from position randomWaiting.nodeRouteIdx to a position
                 // which will most increase the total score
-                Solution candidateSolution = bestSolution;
                 for (int movePosition = 1; movePosition < targetRoute.size(); movePosition++) {
                     ArrayList<Integer> updatedTargetRoute = moveNodeWithinRoute(targetRoute, randomWaiting.nodeRouteIdx, movePosition);
                     ArrayList<ArrayList<Integer>> updatedRoutes = new ArrayList<>(bestSolution.routes);
@@ -192,28 +207,28 @@ public class Solver {
                         candidateSolution = newSolution;
                     }
                 }
-                // Check if solution is improved
-                if (candidateSolution.totalCost < bestSolution.totalCost) {
-                    bestSolution = candidateSolution;
-                    improved = true;
-                }
             }
         }
+        return candidateSolution;
+    }
 
-        // 2. 2opt moves to reduce waiting time
-        improved = true;
-        while (improved) {
-            improved = false;
-            // TODO: Tune the greedines rate
-            float greedinessRate = randomGenerator.nextFloat();
-            // Restrict the candidate list
-            int maxRcl = (int) Math.ceil(greedinessRate * this.testInstance.routeCount);
-            // Choose one routeIdx at random
-            int randomRouteIdx = bestSolution.routesByTravelCost[randomGenerator.nextInt(maxRcl)];
+    // Chooses k routes at random, and searches for the best 2opt move
+    private Solution twoOptMove(Solution bestSolution, float greedinessRate, int k) {
+        Solution candidateSolution = bestSolution;
+        // Restrict the candidate list
+        int maxRcl = (int) Math.ceil(greedinessRate * this.testInstance.routeCount);
+        // If maxRcl is too small, or k is to large
+        if (maxRcl < k && k <= this.testInstance.routeCount) {
+            maxRcl = k;
+        } else if (k > this.testInstance.routeCount) {
+            maxRcl = k = this.testInstance.routeCount;
+        }
+        ArrayList<Integer> randomRouteIdxs = uniqueRandomFromRange(0,maxRcl,k);
+
+        for (int randomRouteIdx : randomRouteIdxs) {
             // Target route that will be updated
             ArrayList<Integer> targetRoute = bestSolution.routes.get(randomRouteIdx);
             // We will perform 2opt move in targetRoute at the position which will most increase the total score
-            Solution candidateSolution = bestSolution;
             for (int i = 1; i < targetRoute.size()-1; i++) {
                 for (int j = i+1; j < targetRoute.size(); j++) {
                     ArrayList<Integer> updatedTargetRoute = twoOptSwap(targetRoute,i,j);
@@ -225,15 +240,8 @@ public class Solver {
                     }
                 }
             }
-            // Check if solution is improved
-            if (candidateSolution.totalCost < bestSolution.totalCost) {
-                bestSolution = candidateSolution;
-                improved = true;
-            }
         }
-
-
-        return bestSolution;
+        return candidateSolution;
     }
 
     // Helper methods -----------------------------------------------------
@@ -266,5 +274,14 @@ public class Solver {
         return newRoute;
     }
 
+    // Method returns n random numbers from range [from,to]
+    private  ArrayList<Integer> uniqueRandomFromRange(int from, int to, int count) {
+        ArrayList<Integer> indexes = new ArrayList<>();
+        for (int i = from; i < to; i++) {
+            indexes.add(i);
+        }
+        Collections.shuffle(indexes);
+        return new ArrayList<Integer>(indexes.subList(0, count));
+    }
 
 }
