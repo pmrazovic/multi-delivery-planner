@@ -1,128 +1,393 @@
 package com.multi.delivery.planner;
 
-import java.time.LocalTime;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.PriorityQueue;
+import java.util.Random;
+import java.util.TreeMap;
+import java.util.Vector;
+
+import com.multi.delivery.planner.Solution.Weight;
 
 /**
  * Created by pero on 05/12/2016.
  */
 public class Solver {
+	// Random generator
+	Random randomGenerator = new Random();
+	// Test instance that needs to be solved
+	TestInstance testInstance;
+	int totalNodes = 0;
 
-    // Event class (represents arrivals/departures at/from node)
-    public class Event implements Comparable<Event> {
-        int routeID;
-        int nodeRouteIdx;
-        String type;
-        LocalTime time;
-
-        public Event(int routeID, int nodeRouteIdx, String type, LocalTime time) {
-            this.routeID = routeID;
-            this.nodeRouteIdx = nodeRouteIdx;
-            this.type = type;
-            this.time = time;
-        }
-
-        @Override
-        public int compareTo(Event other){
-            return time.compareTo(other.time);
-        }
-    }
-
-    // Test instance that needs to be solved
-    TestInstance testInstance;
-    // Current solution
-    int[][] currentSolutionRoutes;
-    // Travel times
-    int[] currentRouteTravelTimes;
-    // Wait times
-    int[] currentRouteWaitTimes;
-    // wait times for nodes
-	int[][] routeWaitTimesForNodes;
-
-
-    public Solver(TestInstance testInstance) {
-        // Assigning test instance
-        this.testInstance = testInstance;
-        this.currentSolutionRoutes = testInstance.routes;
-        this.currentRouteTravelTimes = new int[this.testInstance.routeCount];
-        this.currentRouteWaitTimes = new int[this.testInstance.routeCount];
-        this.routeWaitTimesForNodes = new int[testInstance.routeCount][];
-		for (int i = 0; i < testInstance.routeCount; i++) {
-			routeWaitTimesForNodes[i] = new int[currentSolutionRoutes[i].length];
+	public Solver(TestInstance testInstance) {
+		// Assigning test instance
+		this.testInstance = testInstance;
+		totalNodes = 0;
+		for (ArrayList<Integer> route : testInstance.routes) {
+			totalNodes += route.size() - 1;
 		}
-		
-        this.computeTotalDuration();
-    }
+	}
 
-    // Computes the total duration (travel + wait time) of all the routes in the current solution
-    private void computeTotalDuration() {
-        // Initialize the event queue with arrivals at the first node of each route
-        // Sorted event queue
-        PriorityQueue<Event> eventQueue = new PriorityQueue<Event>();
-        for (int i = 0; i < this.currentSolutionRoutes.length; i++) {
-            Event newEvent = new Event(i,0,"ARRIVAL",this.testInstance.routeStarts[i]);
-            eventQueue.add(newEvent);
-        }
+	// Starts solving process
+	public Solution run() {
+		int kMax = 20;
+		int countNoImprovement = 0;
+		// Create random solution using GRASP
+		Solution bestSolution = createRandomSolution();
+		// Repeat until solution has not been improved in certain number of
+		// iteration
 
-        // Node queue contains departure times of both parked and waiting vehicles
-        HashMap<Integer, ArrayList<LocalTime>> nodeQueues = new HashMap<>();
+		// in each iteration, there is exploration of different solutions
+		while (countNoImprovement < 300) {
+			// Create random solution using GRASP
+			Solution initialSolution = createRandomSolution();
+			// Improve the solution using VNS
+			Solution improvedSolution = vns(initialSolution, kMax);
+			if (improvedSolution.totalCost < bestSolution.totalCost) {
+				// Solution is improved
+				bestSolution = improvedSolution;
+				countNoImprovement = 0;
+			} else {
+				// Solution is not improved
+				countNoImprovement++;
+			}
+		}
+		return bestSolution;
+	}
 
-        // We process events (arrivals and departures) until the event queue is not empty
-        while (eventQueue.size() > 0) {
-            Event currentEvent = eventQueue.poll();
+	// Method implements VNS metaheuristic
+	public Solution vns(Solution initialSolution, int kMax) {
+		int k = 1;
+		Solution bestSolution = initialSolution;
+		while (k <= kMax) {
+			// TODO: Tune the perturbationRate parameter if needed
+			float perturbationRate = 0.7f / kMax;
+			// Perturb the solution
+			Solution perturbedSolution = perturbateSolution(bestSolution, perturbationRate);
+			// Best candidate solution based on perturbed solution
+			Solution candidateSolution = localSearch(perturbedSolution, k);
 
-            // Create node queue for the current node if one does not exist
-            int currentNodeID = this.currentSolutionRoutes[currentEvent.routeID][currentEvent.nodeRouteIdx];
-            if (!nodeQueues.containsKey(currentNodeID)) {
-                // All of the nodes are empty at the beginning (no parked vehicles, no waiting line)
-                nodeQueues.put(currentNodeID, new ArrayList<>());
-            }
+			if (candidateSolution.totalCost < bestSolution.totalCost) {
+				bestSolution = candidateSolution;
+				k = 1;
+			} else {
+				k = k + 1;
+			}
+		}
 
-            // Processing arrival and departure events until event queue is not empty
-            if (currentEvent.type == "ARRIVAL") {
-                // For arrival events we compute departure events using nodes' waiting queues and duration of the visits
+		return bestSolution;
 
-                LocalTime newEventTime = null;
-                if (nodeQueues.get(currentNodeID).size() < this.testInstance.nodeCapacities.get(currentNodeID)) {
-                    // Node is not full
-                    newEventTime = currentEvent.time.plusSeconds(this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID));
-                    routeWaitTimesForNodes[currentEvent.routeID][currentEvent.nodeRouteIdx] = 0;
-                } else {
-                    // Node is full and waiting line is not empty
-                    int waitingInLine = nodeQueues.get(currentNodeID).size() - this.testInstance.nodeCapacities.get(currentNodeID);
-                    LocalTime waitUntil = nodeQueues.get(currentNodeID).get(waitingInLine);
-                    newEventTime = waitUntil.plusSeconds(this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID));
-                    this.currentRouteWaitTimes[currentEvent.routeID] += ChronoUnit.SECONDS.between(currentEvent.time, waitUntil);
-                    routeWaitTimesForNodes[currentEvent.routeID][currentEvent.nodeRouteIdx] = (int) ChronoUnit.SECONDS
-							.between(currentEvent.time, waitUntil);
-                }
-                // Adding new departure time to the node's queue
-                nodeQueues.get(currentNodeID).add(newEventTime);
-                Collections.sort(nodeQueues.get(currentNodeID));
-                // Adding new departure event to the event queue
-                Event newEvent = new Event(currentEvent.routeID, currentEvent.nodeRouteIdx, "DEPARTURE", newEventTime);
-                eventQueue.add(newEvent);
+	}
 
-            } else if (currentEvent.type == "DEPARTURE") {
-                // For departure events we compute arrival events at the next node by adding travel time to the current time point
+	// Creates random solution using GRASP
+	private Solution createRandomSolution() {
+		// TODO: Tune the graspGreedinessRate parameter if needed
+		// graspGreedinessRate is used to compute size of RCL
+		float graspGreedinessRate = randomGenerator.nextFloat();
+		ArrayList<ArrayList<Integer>> routes = new ArrayList<>();
+		// Call GRASP construction method for each route
+		for (int i = 0; i < this.testInstance.routeCount; i++) {
+			routes.add(createRandomRoute(this.testInstance.routes.get(i), graspGreedinessRate));
+		}
+		return new Solution(this.testInstance, routes);
+	}
 
-                nodeQueues.get(currentNodeID).remove(currentEvent.time);
-                // If the current node is not the last in the route, create new arrival event
-                if (this.currentSolutionRoutes[currentEvent.routeID].length > currentEvent.nodeRouteIdx + 1) {
-                    int travelTime = this.testInstance.edgeCosts.get(currentNodeID).get(this.currentSolutionRoutes[currentEvent.routeID][currentEvent.nodeRouteIdx + 1]);
-                    LocalTime newEventTime = currentEvent.time.plusSeconds(travelTime);
-                    Event newEvent = new Event(currentEvent.routeID, currentEvent.nodeRouteIdx + 1, "ARRIVAL", newEventTime);
-                    eventQueue.add(newEvent);
-                    this.currentRouteTravelTimes[currentEvent.routeID] += travelTime;
-                }
-            }
-        }
-    }
+	// Creates random route from a given visit list
+	private ArrayList<Integer> createRandomRoute(ArrayList<Integer> visitList, float graspGreedinessRate) {
+		// Initial route
+		ArrayList<Integer> route = new ArrayList<>(visitList);
 
+		int cursor = 0;
+		while (cursor < route.size() - 1) {
+			// Restricted candidate list as a treemap (hashmap with sorted keys)
+			// Keys are distances, and values are node indices in current route
+			int currentNodeIdx = cursor;
+			TreeMap<Integer, Integer> rcl = new TreeMap<>();
+			int maxRcl = (int) Math.ceil(graspGreedinessRate * (route.size() - cursor - 1));
 
+			// Populating RCL
+			for (int i = cursor + 1; i < route.size(); i++) {
+				rcl.put(this.testInstance.edgeCosts.get(route.get(cursor)).get(route.get(i)), i);
+				// If size of RCL is larger than maxRCl we remove the farthest
+				// node in the list
+				if (rcl.size() > maxRcl) {
+					rcl.remove(rcl.lastKey());
+				}
+			}
+
+			// Choosing one node from RCL as random
+			ArrayList<Integer> keys = new ArrayList<>(rcl.keySet());
+			int randomKey = keys.get(randomGenerator.nextInt(keys.size()));
+			int randomNodeIdx = rcl.get(randomKey);
+
+			// Swapping nodes in route
+			Collections.swap(route, cursor + 1, randomNodeIdx);
+
+			// Increasing cursor
+			cursor += 1;
+		}
+
+		return route;
+	}
+
+	// Perturbs given solution, i.e. perturbationRate percentage of routes are
+	// shuffled
+	private Solution perturbateSolution(Solution oldSolution, float perturbationRate) {
+		// Total number of routes that will be shuffled
+		int perturbationCount = (int) Math.ceil(oldSolution.testInstance.routeCount * perturbationRate);
+		// Choose routes at random
+		ArrayList<Integer> perturbatedRouteIdxs = uniqueRandomFromRange(0, oldSolution.testInstance.routeCount,
+				perturbationCount);
+
+		// Copy old routes
+		ArrayList<ArrayList<Integer>> perturbedRoutes = new ArrayList<>(oldSolution.routes);
+		for (int routeIdx : perturbatedRouteIdxs) {
+			// Cloning original route
+			ArrayList<Integer> newPerturbedRoute = new ArrayList<>(oldSolution.routes.get(routeIdx));
+			// Size of the perturbation segment
+			// For now we shuffle all of the nodes in the route, except the
+			// first one
+			// Other option is to shuffle only a percentage of nodes, i.e. (int)
+			// Math.ceil((newPerturbedRoute.size() - 1) * shufflePercenatge)
+			int perturbationLength = newPerturbedRoute.size() - 1;
+			// If perturbation segment consist of only one node, we increase it
+			// by one
+			perturbationLength = perturbationLength == 1 ? 2 : perturbationLength;
+			// Start position of the perturbation segment
+			int pertubationStartIdx = 1 + randomGenerator.nextInt(newPerturbedRoute.size() - perturbationLength);
+			for (int j = pertubationStartIdx; j < pertubationStartIdx + perturbationLength; j++) {
+				Collections.swap(newPerturbedRoute, j,
+						pertubationStartIdx + randomGenerator.nextInt(perturbationLength));
+			}
+			perturbedRoutes.set(routeIdx, newPerturbedRoute);
+		}
+
+		return new Solution(oldSolution.testInstance, perturbedRoutes);
+	}
+
+	// Searches a solution neighbourhood for a local optimum
+	// The method combines two local search moves:
+	// (1) shift move - repositions a node within a route to reduce waiting time
+	// (2) 2opt move - 2opt swap within route to reduce travel time
+	private Solution localSearch(Solution perturbedSolution, int k) {
+		Solution bestSolution = perturbedSolution;
+
+		// Local search looks for the best possible shift and 2opt move until
+		// the improvement cannot be found
+		boolean improved = true;
+		while (improved) {
+			improved = false;
+			// TODO: Tune the greedinesRate parameter if needed
+			float greedinessRate = randomGenerator.nextFloat();
+
+			// TODO choose one
+			// ----- 1. Shift moves to reduce waiting time -----
+			// the weights includes the waitings
+			ArrayList<Solution.Weight> weights = bestSolution.nodeWaitings;
+			Solution candidateSolution = shiftMove(weights, bestSolution, greedinessRate, k);
+			// ----- second move targeting reduction on travel time -----
+			weights = candidateSolution.nodeTravelCostBasedWeights;
+			candidateSolution = shiftMove(weights, candidateSolution, greedinessRate, k);
+
+			// candidateSolution = twoOptMove(candidateSolution, greedinessRate,
+			// k);
+
+			// Check if solution is improved
+			// if (cand2.totalCost < candidateSolution.totalCost)
+			// candidateSolution = cand2;
+			if (candidateSolution.totalCost < bestSolution.totalCost) {
+				bestSolution = candidateSolution;
+				improved = true;
+			}
+		}
+
+		return bestSolution;
+	}
+
+	// Chooses k nodes at random from RCL, and searches for the best shift move
+	private Solution shiftMove(ArrayList<Solution.Weight> weights, Solution bestSolution, float greedinessRate, int k) {
+		Solution candidateSolution = bestSolution;
+		// Get ranked waitings
+		// ArrayList<Solution.Weight> waitings = bestSolution.nodeWaitings;
+		if (weights.size() != 0) {
+			// Restrict the candidate list
+			int maxRcl = (int) Math.ceil(greedinessRate * weights.size());
+			// If maxRcl is too small, or k is to large
+			if (maxRcl < k && k <= weights.size()) {
+				maxRcl = k;
+			} else if (k > weights.size()) {
+				maxRcl = k = weights.size();
+			}
+			// Choose waitings at random
+			ArrayList<Integer> randomWaitingIdxs = uniqueRandomFromRange(0, maxRcl, k);
+
+			for (Integer randomWaitingIdx : randomWaitingIdxs) {
+				// Choose one waiting at random from the RCL
+				Solution.Weight randomWaiting = weights.get(randomWaitingIdx);
+				// Target route that will be changed
+				ArrayList<Integer> targetRoute = bestSolution.routes.get(randomWaiting.routeIdx);
+				// We will move node in targetRoute from position
+				// randomWaiting.nodeRouteIdx to a position
+				// which will most increase the total score
+				for (int movePosition = 1; movePosition < targetRoute.size(); movePosition++) {
+					ArrayList<Integer> updatedTargetRoute = moveNodeWithinRoute(targetRoute, randomWaiting.nodeRouteIdx,
+							movePosition);
+					ArrayList<ArrayList<Integer>> updatedRoutes = new ArrayList<>(bestSolution.routes);
+					updatedRoutes.set(randomWaiting.routeIdx, updatedTargetRoute);
+					Solution newSolution = new Solution(this.testInstance, updatedRoutes);
+					if (newSolution.totalCost < candidateSolution.totalCost) {
+						candidateSolution = newSolution;
+					}
+				}
+			}
+		}
+
+		return candidateSolution;
+	}
+
+	
+	// Chooses k nodes at random from RCL, and searches for the best shift move
+	private Solution shiftMoveByTravelTime(Solution bestSolution, float greedinessRate, int k) {
+
+		Solution candidateSolution = bestSolution;
+
+		// Restrict the candidate list
+		int maxRcl = (int) Math.ceil(greedinessRate * totalNodes);
+
+		if (maxRcl < k && k <= totalNodes) {
+			maxRcl = k;
+		} else if (k > totalNodes) {
+			maxRcl = k = totalNodes;
+		}
+		double tempRatio;
+		PriorityQueue<RouteNode> rcl = new PriorityQueue<RouteNode>(maxRcl);
+		for (int z = 0; z < bestSolution.routes.size(); z++) {
+			for (int i = 1; i < bestSolution.routes.get(z).size(); i++) {
+
+				// weight is selected the travel cost
+				tempRatio = testInstance.editedInvertedCosts.get(bestSolution.routes.get(z).get(i))
+						.get(bestSolution.routes.get(z).get(i - 1));
+				if (rcl.size() < maxRcl) {
+					// if not full, put anyway
+					rcl.add(new RouteNode(z, i, tempRatio));
+				} else if (tempRatio > rcl.peek().wait) {
+					// if it is less than the last, then omit the last one
+					// and
+					// put this
+					rcl.remove();
+					rcl.add(new RouteNode(z, i, tempRatio));
+				}
+
+			}
+		}
+		Vector<RouteNode> rclVector = new Vector<RouteNode>(rcl);
+		// Choose waitings at random
+		ArrayList<Integer> randomWaitingIdxs = uniqueRandomFromRange(0, maxRcl, k);
+		// System.out.println(totalNodes + " " + rclVector.size() + " " +
+		// maxRcl);
+		for (Integer randomWaitingIdx : randomWaitingIdxs) {
+			// Choose one travel time including route node at random from
+			// the RCL
+			RouteNode randomRouteNode = rclVector.get(randomWaitingIdx);
+			// Target route that will be changed
+			ArrayList<Integer> targetRoute = bestSolution.routes.get(randomRouteNode.routeId);
+			// We will move node in targetRoute from position
+			// randomWaiting.nodeRouteIdx to a position
+			// which will most increase the total score
+			for (int movePosition = 1; movePosition < targetRoute.size(); movePosition++) {
+				ArrayList<Integer> updatedTargetRoute = moveNodeWithinRoute(targetRoute, randomRouteNode.nodeId,
+						movePosition);
+				ArrayList<ArrayList<Integer>> updatedRoutes = new ArrayList<>(bestSolution.routes);
+				updatedRoutes.set(randomRouteNode.routeId, updatedTargetRoute);
+				Solution newSolution = new Solution(this.testInstance, updatedRoutes);
+				if (newSolution.totalCost < candidateSolution.totalCost) {
+					candidateSolution = newSolution;
+				}
+			}
+		}
+
+		return candidateSolution;
+	}
+
+	// Chooses k routes at random from RCL, and searches for the best 2opt move
+	// private Solution twoOptMove(Solution bestSolution, float greedinessRate,
+	// int k) {
+	// Solution candidateSolution = bestSolution;
+	// // Restrict the candidate list
+	// int maxRcl = (int) Math.ceil(greedinessRate *
+	// this.testInstance.routeCount);
+	// // If maxRcl is too small, or k is to large
+	// if (maxRcl < k && k <= this.testInstance.routeCount) {
+	// maxRcl = k;
+	// } else if (k > this.testInstance.routeCount) {
+	// maxRcl = k = this.testInstance.routeCount;
+	// }
+	// // RCL is composed of maxRcl longest routes (with highest travel time)
+	// // We first randomly choose indexes of elements in RCL
+	// ArrayList<Integer> randomRclIdxs = uniqueRandomFromRange(0, maxRcl, k);
+	//
+	// for (int randomRclIdx : randomRclIdxs) {
+	// // Target route that will be updated
+	// ArrayList<Integer> targetRoute =
+	// bestSolution.routes.get(bestSolution.routesByTravelCost[randomRclIdx]);
+	// // We will perform 2opt move in targetRoute at the position which
+	// // will most increase the total score
+	// for (int i = 1; i < targetRoute.size() - 1; i++) {
+	// for (int j = i + 1; j < targetRoute.size(); j++) {
+	// ArrayList<Integer> updatedTargetRoute = twoOptSwap(targetRoute, i, j);
+	// ArrayList<ArrayList<Integer>> updatedRoutes = new
+	// ArrayList<>(bestSolution.routes);
+	// updatedRoutes.set(bestSolution.routesByTravelCost[randomRclIdx],
+	// updatedTargetRoute);
+	// Solution newSolution = new Solution(this.testInstance, updatedRoutes);
+	// if (newSolution.totalCost < candidateSolution.totalCost) {
+	// candidateSolution = newSolution;
+	// }
+	// }
+	// }
+	// }
+	// return candidateSolution;
+	// }
+
+	// Helper methods -----------------------------------------------------
+
+	// Method creates new array list by moving an element from oldIdx to newIdx
+	private ArrayList<Integer> moveNodeWithinRoute(ArrayList<Integer> originalRoute, int oldIdx, int newIdx) {
+		ArrayList<Integer> newRoute = new ArrayList<>(originalRoute);
+		// We could simply use: route.add(newIdx, newRoute.remove(oldIdx)),
+		// but the following method is more efficient
+		Integer fromValue = newRoute.get(oldIdx);
+		int delta = oldIdx < newIdx ? 1 : -1;
+		for (int i = oldIdx; i != newIdx; i += delta) {
+			newRoute.set(i, newRoute.get(i + delta));
+		}
+		newRoute.set(newIdx, fromValue);
+		return newRoute;
+	}
+
+	// Method creates new array list by performing 2opt swap
+	private ArrayList<Integer> twoOptSwap(ArrayList<Integer> originalRoute, int i, int j) {
+		ArrayList<Integer> newRoute = new ArrayList<>(originalRoute);
+		int l = j;
+		int limit = i + ((j - i) / 2);
+		for (int k = i; k <= limit; k++) {
+			int temp = newRoute.get(k);
+			newRoute.set(k, newRoute.get(l));
+			newRoute.set(l, temp);
+			l--;
+		}
+		return newRoute;
+	}
+
+	// Method returns n random numbers from range [from,to]
+	private ArrayList<Integer> uniqueRandomFromRange(int from, int to, int count) {
+		ArrayList<Integer> indexes = new ArrayList<>();
+		for (int i = from; i < to; i++) {
+			indexes.add(i);
+		}
+		Collections.shuffle(indexes);
+		return new ArrayList<Integer>(indexes.subList(0, count));
+	}
 
 }
