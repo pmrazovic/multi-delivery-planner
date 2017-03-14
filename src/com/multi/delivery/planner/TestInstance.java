@@ -20,7 +20,7 @@ public class TestInstance {
 	// Edge costs
 	HashMap<Integer, HashMap<Integer, Integer>> edgeCosts;
 
-	HashMap<Integer, HashMap<Integer, Double>> editedInvertedCosts;
+	HashMap<Integer, HashMap<Integer, Integer>> invertedCosts;
 
 	// Routes' set of nodes
 	ArrayList<ArrayList<Integer>> routes;
@@ -35,7 +35,7 @@ public class TestInstance {
 
 	public TestInstance(int nodeCount, int routeCount, int[] nodeIDs, HashMap<Integer, Integer> nodeCapacities,
 			HashMap<Integer, HashMap<Integer, Integer>> edgeCosts,
-			HashMap<Integer, HashMap<Integer, Double>> editedInvertedCosts, ArrayList<ArrayList<Integer>> routes,
+			HashMap<Integer, HashMap<Integer, Integer>> invertedCosts, ArrayList<ArrayList<Integer>> routes,
 			HashMap<Integer, HashMap<Integer, Integer>> deliveryDurations, LocalTime[] routeStarts,
 			ArrayList<ArrayList<Integer>> tspRoutes, float complexity) {
 
@@ -44,7 +44,7 @@ public class TestInstance {
 		this.nodeIDs = nodeIDs;
 		this.nodeCapacities = nodeCapacities;
 		this.edgeCosts = edgeCosts;
-		this.editedInvertedCosts = editedInvertedCosts;
+		this.invertedCosts = invertedCosts;
 		this.routes = routes;
 		this.deliveryDurations = deliveryDurations;
 		this.routeStarts = routeStarts;

@@ -29,12 +29,11 @@ public class TestInstanceParser {
 			int startIdxComplexity = fileLines.indexOf("COMPLEXITY");
 			int startIdxTspSolution = fileLines.indexOf("TSP SOLUTION");
 
-			
 			// Splitting lines based on positions of the reference lines
 			List<String> routeLines = fileLines.subList(startIdxRoutes + 1, startIdxNodes);
 			List<String> nodeLines = fileLines.subList(startIdxNodes + 1, startIdxEdges);
 			List<String> edgeLines = fileLines.subList(startIdxEdges + 1, startIdxComplexity);
-		
+
 			// List<String> complexityLines =
 			// fileLines.subList(startIdxComplexity+1,startIdxTspSolution);
 			// List<String> tspSolutionLines =
@@ -76,30 +75,6 @@ public class TestInstanceParser {
 					invertedEdgeCosts.put(toNodeID, new HashMap<Integer, Integer>());
 					invertedEdgeCosts.get(toNodeID).put(fromNodeID, cost);
 				}
-			}
-
-			int bestScore;
-			HashMap<Integer, HashMap<Integer, Double>> editedInvertedCosts;
-			editedInvertedCosts = new HashMap<Integer, HashMap<Integer, Double>>();
-			for (int to : invertedEdgeCosts.keySet()) {
-				bestScore = Integer.MAX_VALUE;
-				for (int from : invertedEdgeCosts.get(to).keySet()) {
-					if (bestScore > invertedEdgeCosts.get(to).get(from)) {
-						bestScore = invertedEdgeCosts.get(to).get(from);
-					}
-
-				}
-				HashMap<Integer, Double> tempMap = new HashMap<Integer, Double>();
-
-				for (int from : invertedEdgeCosts.get(to).keySet()) {
-					// distance from the best according to percentage
-
-					// putting the mnus value of it, because of the ease in
-					// treemap
-					tempMap.put(from, invertedEdgeCosts.get(to).get(from) - bestScore / (double) bestScore);
-				}
-				
-				editedInvertedCosts.put(to, tempMap);
 			}
 
 			// Parsing routes
@@ -147,7 +122,7 @@ public class TestInstanceParser {
 			// TestInstance(nodeCount,routeCount,nodeIDs,nodeCapacities,edgeCosts,routes,delivery_durations,routeStarts,tspRoutes,instanceComplexity);
 			// TODO: delete
 			newTestInstance = new TestInstance(nodeCount, routeCount, nodeIDs, nodeCapacities, edgeCosts,
-					editedInvertedCosts, routes, delivery_durations, routeStarts, new ArrayList<>(), 0);
+					invertedEdgeCosts, routes, delivery_durations, routeStarts, new ArrayList<>(), 0);
 
 		} catch (IOException e) {
 			System.out

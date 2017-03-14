@@ -246,69 +246,6 @@ public class Solver {
 		return candidateSolution;
 	}
 
-	
-	// Chooses k nodes at random from RCL, and searches for the best shift move
-	private Solution shiftMoveByTravelTime(Solution bestSolution, float greedinessRate, int k) {
-
-		Solution candidateSolution = bestSolution;
-
-		// Restrict the candidate list
-		int maxRcl = (int) Math.ceil(greedinessRate * totalNodes);
-
-		if (maxRcl < k && k <= totalNodes) {
-			maxRcl = k;
-		} else if (k > totalNodes) {
-			maxRcl = k = totalNodes;
-		}
-		double tempRatio;
-		PriorityQueue<RouteNode> rcl = new PriorityQueue<RouteNode>(maxRcl);
-		for (int z = 0; z < bestSolution.routes.size(); z++) {
-			for (int i = 1; i < bestSolution.routes.get(z).size(); i++) {
-
-				// weight is selected the travel cost
-				tempRatio = testInstance.editedInvertedCosts.get(bestSolution.routes.get(z).get(i))
-						.get(bestSolution.routes.get(z).get(i - 1));
-				if (rcl.size() < maxRcl) {
-					// if not full, put anyway
-					rcl.add(new RouteNode(z, i, tempRatio));
-				} else if (tempRatio > rcl.peek().wait) {
-					// if it is less than the last, then omit the last one
-					// and
-					// put this
-					rcl.remove();
-					rcl.add(new RouteNode(z, i, tempRatio));
-				}
-
-			}
-		}
-		Vector<RouteNode> rclVector = new Vector<RouteNode>(rcl);
-		// Choose waitings at random
-		ArrayList<Integer> randomWaitingIdxs = uniqueRandomFromRange(0, maxRcl, k);
-		// System.out.println(totalNodes + " " + rclVector.size() + " " +
-		// maxRcl);
-		for (Integer randomWaitingIdx : randomWaitingIdxs) {
-			// Choose one travel time including route node at random from
-			// the RCL
-			RouteNode randomRouteNode = rclVector.get(randomWaitingIdx);
-			// Target route that will be changed
-			ArrayList<Integer> targetRoute = bestSolution.routes.get(randomRouteNode.routeId);
-			// We will move node in targetRoute from position
-			// randomWaiting.nodeRouteIdx to a position
-			// which will most increase the total score
-			for (int movePosition = 1; movePosition < targetRoute.size(); movePosition++) {
-				ArrayList<Integer> updatedTargetRoute = moveNodeWithinRoute(targetRoute, randomRouteNode.nodeId,
-						movePosition);
-				ArrayList<ArrayList<Integer>> updatedRoutes = new ArrayList<>(bestSolution.routes);
-				updatedRoutes.set(randomRouteNode.routeId, updatedTargetRoute);
-				Solution newSolution = new Solution(this.testInstance, updatedRoutes);
-				if (newSolution.totalCost < candidateSolution.totalCost) {
-					candidateSolution = newSolution;
-				}
-			}
-		}
-
-		return candidateSolution;
-	}
 
 	// Chooses k routes at random from RCL, and searches for the best 2opt move
 	// private Solution twoOptMove(Solution bestSolution, float greedinessRate,

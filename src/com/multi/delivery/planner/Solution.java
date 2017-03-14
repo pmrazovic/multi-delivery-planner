@@ -14,11 +14,11 @@ public class Solution {
 	// Routes
 	ArrayList<ArrayList<Integer>> routes;
 	// Travel times
-	// int[] travelTimesPerRoute;
+	int[] travelTimesPerRoute;
 	// Route indices sorted by routes' travel times
 	// Integer[] routesByTravelCost;
 	// Waiting times per route
-	// int[] waitTimesPerRoute;
+	int[] waitTimesPerRoute;
 	// Sorted list of waiting objects
 	ArrayList<Weight> nodeWaitings;
 	ArrayList<Weight> nodeTravelCostBasedWeights;
@@ -29,8 +29,8 @@ public class Solution {
 	public Solution(TestInstance testInstance) {
 		this.testInstance = testInstance;
 		this.routes = this.testInstance.routes;
-		// this.travelTimesPerRoute = new int[this.testInstance.routeCount];
-		// this.waitTimesPerRoute = new int[this.testInstance.routeCount];
+		this.travelTimesPerRoute = new int[this.testInstance.routeCount];
+		this.waitTimesPerRoute = new int[this.testInstance.routeCount];
 
 		this.nodeWaitings = new ArrayList<Weight>();
 		this.nodeTravelCostBasedWeights = new ArrayList<Weight>();
@@ -41,8 +41,8 @@ public class Solution {
 	public Solution(TestInstance testInstance, ArrayList<ArrayList<Integer>> routes) {
 		this.testInstance = testInstance;
 		this.routes = routes;
-		// this.travelTimesPerRoute = new int[this.testInstance.routeCount];
-		// this.waitTimesPerRoute = new int[this.testInstance.routeCount];
+		this.travelTimesPerRoute = new int[this.testInstance.routeCount];
+		this.waitTimesPerRoute = new int[this.testInstance.routeCount];
 		this.nodeWaitings = new ArrayList<>();
 		this.nodeTravelCostBasedWeights = new ArrayList<Weight>();
 		computeTimeCosts();
@@ -138,7 +138,7 @@ public class Solution {
 
 					int newWaitingTime = (int) ChronoUnit.SECONDS.between(currentEvent.time, waitUntil);
 					nodeWaitings.add(new Weight(currentEvent.routeID, currentEvent.nodeRouteIdx, newWaitingTime));
-					// this.waitTimesPerRoute[currentEvent.routeID] +=
+					this.waitTimesPerRoute[currentEvent.routeID] +=
 					// newWaitingTime;
 					this.totalCost += newWaitingTime
 							+ this.testInstance.deliveryDurations.get(currentEvent.routeID).get(currentNodeID);
@@ -164,8 +164,7 @@ public class Solution {
 					Event newEvent = new Event(currentEvent.routeID, currentEvent.nodeRouteIdx + 1, ARRIVAL,
 							newEventTime);
 					eventQueue.add(newEvent);
-					// this.travelTimesPerRoute[currentEvent.routeID] +=
-					// travelTime;
+					this.travelTimesPerRoute[currentEvent.routeID] += travelTime;
 					this.totalCost += travelTime;
 				}
 			}
@@ -174,14 +173,24 @@ public class Solution {
 		// Sorting node waitings
 		Collections.sort(nodeWaitings);
 
-		// incoming edge normalized values
-		double tempRatio;
-		for (int z = 0; z < routes.size(); z++) {
-			for (int i = 1; i < routes.get(z).size(); i++) {
+		int bestScore;
+		for (int routeId = 0; routeId < routes.size(); routeId++) {
+			// for each node in a specific route
+			for (int nodeId = 1; nodeId < routes.get(routeId).size(); nodeId++) {
+				bestScore = Integer.MAX_VALUE;
+				// find the best incoming node(from) for each node
+				for (int from : routes.get(routeId)) {
+					if (routes.get(routeId).get(nodeId) != from)
+						if (bestScore > testInstance.invertedCosts.get(routes.get(routeId).get(nodeId)).get(from)) {
+							bestScore = testInstance.invertedCosts.get(routes.get(routeId).get(nodeId)).get(from);
+						}
+				}
 
-				// weight is selected the travel cost
-				tempRatio = testInstance.editedInvertedCosts.get(routes.get(z).get(i)).get(routes.get(z).get(i - 1));
-				nodeTravelCostBasedWeights.add(new Weight(z, i, tempRatio));
+				// keep the ratio of current coming node
+				nodeTravelCostBasedWeights
+						.add(new Weight(routeId, nodeId, testInstance.invertedCosts.get(routes.get(routeId).get(nodeId))
+								.get(routes.get(routeId).get(nodeId - 1)) - bestScore / (double) bestScore));
+
 			}
 		}
 
